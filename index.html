@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đọc Truyện Phàm Nhân Tu Tiên</title>
+    <style>
+        :root { --font-size: 18px; }
+        body { font-family: 'Times New Roman', Times, Georgia, serif; margin: 0; background-color: #f9f9f6; color: #2b2b2b; }
+        #toolbar { position: sticky; top: 0; background: #ffffff; padding: 10px 20px; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); z-index: 1000; height: 46px; }
+        .nav-group { display: flex; align-items: center; justify-content: center; }
+        .chapter-picker { padding: 7px 12px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; background-color: #f8f9fa; margin: 0 10px; width: 300px; max-width: 40vw; font-family: 'Times New Roman', Times, Georgia, serif; cursor: pointer; font-weight: bold; color: #333; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+        .fs-group { position: absolute; right: 20px; display: flex; align-items: center; white-space: nowrap; }
+        #reader-container { padding: 40px 20px; background: #fbfbfd; min-height: calc(100vh - 120px); }
+        #reader { max-width: 800px; margin: 0 auto; line-height: 1.8; font-size: var(--font-size); text-align: justify; }
+        #reader h2 { font-size: 1.8em; color: #111; margin-bottom: 5px; text-align: center; }
+        #reader hr { border: 0; border-top: 1px solid #e3e3e3; margin: 20px 0 30px 0; }
+        .btn { background: #007acc; color: white; padding: 8px 18px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px; display: inline-block; transition: background 0.2s; white-space: nowrap; }
+        .btn:hover { background: #0062a3; }
+        .btn:disabled { background: #cccccc; cursor: not-allowed; }
+        .fs-picker { padding: 6px 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; margin-left: 5px; }
+        @media (max-width: 600px) {
+            #toolbar { flex-direction: column; gap: 8px; padding: 10px; height: auto; }
+            .fs-group { position: static; justify-content: center; width: 100%; }
+            .chapter-picker { width: 150px; max-width: 38vw; font-size: 13px; margin: 0 5px; }
+            .btn { padding: 7px 10px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <div class="nav-group">
+            <button id="btn-prev" onclick="goPrev()" class="btn">Chương Trước</button>
+            <select class="chapter-picker" onchange="onPickerChange(this.value)"></select>
+            <button id="btn-next" onclick="goNext()" class="btn">Chương Sau</button>
+        </div>
+        <div class="fs-group">
+            <label for="fs" style="font-size: 14px; font-weight: bold;">Cỡ chữ: </label>
+            <select id="fs" class="fs-picker" onchange="changeFontSize(this.value)">
+                <option value="16px">Nhỏ (16px)</option>
+                <option value="18px" selected>Vừa (18px)</option>
+                <option value="22px">Lớn (22px)</option>
+                <option value="26px">X-Lớn (26px)</option>
+                <option value="30px">Chữ To (30px)</option>
+            </select>
+        </div>
+    </div>
+    <div id="reader-container">
+        <div id="reader">
+            <h2 id="chapter-title">Đang tải...</h2>
+            <hr/>
+            <div id="chapter-content">Đang tải nội dung truyện...</div>
+        </div>
+    </div>
+    <script>
+        let toc = [];
+        let currentCh = 1;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        currentCh = parseInt(urlParams.get('ch')) || 1;
+
+        fetch('toc.json')
+            .then(res => res.json())
+            .then(data => {
+                toc = data;
+                renderToc();
+                loadChapter(currentCh);
+            });
+
+        function renderToc() {
+            const picker = document.querySelector('.chapter-picker');
+            picker.innerHTML = toc.map((title, i) => 
+                `<option value="${i+1}" ${currentCh === i+1 ? 'selected' : ''}>${title}</option>`
+            ).join('');
+        }
+
+        function loadChapter(ch) {
+            if (ch < 1 || ch > toc.length) return;
+            currentCh = ch;
+            
+            document.getElementById('chapter-title').innerText = toc[ch-1];
+            document.title = toc[ch-1];
+
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?ch=' + ch;
+            window.history.pushState({path:newUrl}, '', newUrl);
+
+            document.getElementById('btn-prev').disabled = ch <= 1;
+            document.getElementById('btn-next').disabled = ch >= toc.length;
+            document.querySelector('.chapter-picker').value = ch;
+
+            document.getElementById('chapter-content').innerHTML = "Đang tải chương mới...";
+            
+            fetch(`chapters/${ch}.txt`)
+                .then(res => res.text())
+                .then(text => {
+                    document.getElementById('chapter-content').innerHTML = text;
+                    window.scrollTo(0,0);
+                })
+                .catch(() => {
+                    document.getElementById('chapter-content').innerHTML = "Lỗi tải nội dung chương này.";
+                });
+        }
+
+        function goPrev() { if (currentCh > 1) loadChapter(currentCh - 1); }
+        function goNext() { if (currentCh < toc.length) loadChapter(currentCh + 1); }
+        function onPickerChange(val) { loadChapter(parseInt(val)); }
+        function changeFontSize(size) {
+            document.documentElement.style.setProperty('--font-size', size);
+            localStorage.setItem('personal-reader-font-size', size);
+        }
+        const savedSize = localStorage.getItem('personal-reader-font-size');
+        if (savedSize) {
+            document.getElementById('fs').value = savedSize;
+            changeFontSize(savedSize);
+        }
+    </script>
+</body>
+</html>
