@@ -5,40 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đọc Truyện Phàm Nhân Tu Tiên</title>
     <style>
-        :root { --font-size: 18px; }
-        body { font-family: 'Times New Roman', Times, Georgia, serif; margin: 0; background-color: #f9f9f6; color: #2b2b2b; }
-        #toolbar { position: sticky; top: 0; background: #ffffff; padding: 10px 20px; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); z-index: 1000; height: 46px; }
+        :root { --font-size: 19px; --bg-color: #f7f3eb; --text-color: #242424; --toolbar-bg: #ffffff; }
+        body.dark-mode { --bg-color: #1a1a1a; --text-color: #cccccc; --toolbar-bg: #262626; }
+        
+        body { font-family: 'Times New Roman', Times, Georgia, serif; margin: 0; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; -webkit-font-smoothing: antialiased; }
+        
+        #progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: transparent; z-index: 1001; }
+        #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #007acc, #00bfff); transition: width 0.1s ease; }
+
+        #toolbar { position: sticky; top: 0; background: var(--toolbar-bg); padding: 10px 20px; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.04); z-index: 1000; height: 46px; transition: background-color 0.3s; }
         .nav-group { display: flex; align-items: center; justify-content: center; }
-        .chapter-picker { padding: 7px 12px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; background-color: #f8f9fa; margin: 0 10px; width: 300px; max-width: 40vw; font-family: 'Times New Roman', Times, Georgia, serif; cursor: pointer; font-weight: bold; color: #333; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
-        .fs-group { position: absolute; right: 20px; display: flex; align-items: center; white-space: nowrap; }
-        #reader-container { padding: 40px 20px; background: #fbfbfd; min-height: calc(100vh - 120px); }
-        #reader { max-width: 800px; margin: 0 auto; line-height: 1.8; font-size: var(--font-size); text-align: justify; }
-        #reader h2 { font-size: 1.8em; color: #111; margin-bottom: 5px; text-align: center; }
-        #reader hr { border: 0; border-top: 1px solid #e3e3e3; margin: 20px 0 30px 0; }
-        .btn { background: #007acc; color: white; padding: 8px 18px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px; display: inline-block; transition: background 0.2s; white-space: nowrap; }
-        .btn:hover { background: #0062a3; }
-        .btn:disabled { background: #cccccc; cursor: not-allowed; }
-        .fs-picker { padding: 6px 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; margin-left: 5px; }
-        @media (max-width: 600px) {
-            #toolbar { flex-direction: column; gap: 8px; padding: 10px; height: auto; }
-            .fs-group { position: static; justify-content: center; width: 100%; }
-            .chapter-picker { width: 150px; max-width: 38vw; font-size: 13px; margin: 0 5px; }
-            .btn { padding: 7px 10px; font-size: 13px; }
+        
+        .chapter-picker { padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); margin: 0 10px; width: 280px; max-width: 42vw; font-family: inherit; cursor: pointer; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; outline: none; }
+        
+        .control-group { position: absolute; right: 20px; display: flex; align-items: center; gap: 10px; }
+        
+        #reader-container { padding: 30px 20px 60px 20px; display: flex; justify-content: center; }
+        #reader { max-width: 750px; width: 100%; line-height: 1.85; font-size: var(--font-size); text-align: justify; opacity: 1; transition: opacity 0.25s ease-in-out; }
+        
+        #reader h2 { font-size: 1.7em; color: var(--text-color); margin-bottom: 8px; text-align: center; font-weight: bold; }
+        #reader hr { border: 0; border-top: 1px solid rgba(0,0,0,0.1); margin: 20px 0 35px 0; }
+        body.dark-mode #reader hr { border-top: 1px solid rgba(255,255,255,0.1); }
+
+        .btn { background: #007acc; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; display: inline-block; transition: all 0.2s ease; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,122,204,0.2); }
+        .btn:hover { background: #0062a3; transform: translateY(-1px); }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { background: #cccccc !important; color: #888888; cursor: not-allowed; transform: none !important; box-shadow: none; }
+        
+        .fs-picker { padding: 6px 8px; font-size: 13px; border-radius: 6px; border: 1px solid #ccc; background: var(--toolbar-bg); color: var(--text-color); font-family: inherit; }
+        .theme-btn { background: none; border: 1px solid #ccc; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; color: var(--text-color); background: var(--toolbar-bg); }
+
+        .fade-out { opacity: 0 !important; }
+
+        @media (max-width: 768px) {
+            #toolbar { flex-direction: column; gap: 8px; padding: 10px; height: auto; position: relative; }
+            .control-group { position: static; justify-content: center; width: 100%; margin-top: 4px; }
+            .chapter-picker { width: 160px; max-width: 38vw; font-size: 13px; margin: 0 5px; padding: 6px 8px; }
+            .btn { padding: 7px 12px; font-size: 13px; }
+            #reader { text-align: left; }
         }
     </style>
 </head>
 <body>
+    <div id="progress-container"><div id="progress-bar"></div></div>
     <div id="toolbar">
         <div class="nav-group">
-            <button id="btn-prev" onclick="goPrev()" class="btn">Chương Trước</button>
+            <button id="btn-prev" onclick="goPrev()" class="btn">Trước</button>
             <select class="chapter-picker" onchange="onPickerChange(this.value)"></select>
-            <button id="btn-next" onclick="goNext()" class="btn">Chương Sau</button>
+            <button id="btn-next" onclick="goNext()" class="btn">Sau</button>
         </div>
-        <div class="fs-group">
-            <label for="fs" style="font-size: 14px; font-weight: bold;">Cỡ chữ: </label>
+        <div class="control-group">
+            <button class="theme-btn" onclick="toggleTheme()">🌓 Mode</button>
             <select id="fs" class="fs-picker" onchange="changeFontSize(this.value)">
-                <option value="16px">Nhỏ (16px)</option>
-                <option value="18px" selected>Vừa (18px)</option>
+                <option value="17px">Nhỏ (17px)</option>
+                <option value="19px" selected>Vừa (19px)</option>
                 <option value="22px">Lớn (22px)</option>
                 <option value="26px">X-Lớn (26px)</option>
                 <option value="30px">Chữ To (30px)</option>
@@ -47,9 +67,9 @@
     </div>
     <div id="reader-container">
         <div id="reader">
-            <h2 id="chapter-title">Đang tải...</h2>
+            <h2 id="chapter-title">Đang kết nối không gian...</h2>
             <hr/>
-            <div id="chapter-content">Đang tải nội dung truyện...</div>
+            <div id="chapter-content">Nội dung chương đang được truyền tải...</div>
         </div>
     </div>
     <script>
@@ -57,14 +77,21 @@
         let currentCh = 1;
 
         const urlParams = new URLSearchParams(window.location.search);
-        currentCh = parseInt(urlParams.get('ch')) || 1;
+        currentCh = parseInt(urlParams.get('ch')) || parseInt(localStorage.getItem('last-read-ch')) || 1;
+
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+            document.getElementById('progress-bar').style.width = scrolled + '%';
+        });
 
         fetch('toc.json')
             .then(res => res.json())
             .then(data => {
                 toc = data;
                 renderToc();
-                loadChapter(currentCh);
+                loadChapter(currentCh, false);
             });
 
         function renderToc() {
@@ -74,44 +101,61 @@
             ).join('');
         }
 
-        function loadChapter(ch) {
+        function loadChapter(ch, animate = true) {
             if (ch < 1 || ch > toc.length) return;
             currentCh = ch;
+            localStorage.setItem('last-read-ch', ch);
+
+            const reader = document.getElementById('reader');
             
-            document.getElementById('chapter-title').innerText = toc[ch-1];
-            document.title = toc[ch-1];
+            const processLoad = () => {
+                document.getElementById('chapter-title').innerText = toc[ch-1];
+                document.title = toc[ch-1];
 
-            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?ch=' + ch;
-            window.history.pushState({path:newUrl}, '', newUrl);
+                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?ch=' + ch;
+                window.history.pushState({path:newUrl}, '', newUrl);
 
-            document.getElementById('btn-prev').disabled = ch <= 1;
-            document.getElementById('btn-next').disabled = ch >= toc.length;
-            document.querySelector('.chapter-picker').value = ch;
+                document.getElementById('btn-prev').disabled = ch <= 1;
+                document.getElementById('btn-next').disabled = ch >= toc.length;
+                document.querySelector('.chapter-picker').value = ch;
 
-            document.getElementById('chapter-content').innerHTML = "Đang tải chương mới...";
-            
-            fetch(`chapters/${ch}.txt`)
-                .then(res => res.text())
-                .then(text => {
-                    document.getElementById('chapter-content').innerHTML = text;
-                    window.scrollTo(0,0);
-                })
-                .catch(() => {
-                    document.getElementById('chapter-content').innerHTML = "Lỗi tải nội dung chương này.";
-                });
+                fetch(`chapters/${ch}.txt`)
+                    .then(res => res.text())
+                    .then(text => {
+                        document.getElementById('chapter-content').innerHTML = text;
+                        window.scrollTo({ top: 0, behavior: animate ? 'smooth' : 'auto' });
+                        if (animate) reader.classList.remove('fade-out');
+                    });
+            };
+
+            if (animate) {
+                reader.classList.add('fade-out');
+                setTimeout(processLoad, 250);
+            } else {
+                processLoad();
+            }
         }
 
         function goPrev() { if (currentCh > 1) loadChapter(currentCh - 1); }
         function goNext() { if (currentCh < toc.length) loadChapter(currentCh + 1); }
         function onPickerChange(val) { loadChapter(parseInt(val)); }
+        
         function changeFontSize(size) {
             document.documentElement.style.setProperty('--font-size', size);
             localStorage.setItem('personal-reader-font-size', size);
         }
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('personal-theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+        }
+
         const savedSize = localStorage.getItem('personal-reader-font-size');
         if (savedSize) {
             document.getElementById('fs').value = savedSize;
             changeFontSize(savedSize);
+        }
+        if (localStorage.getItem('personal-theme') === 'dark') {
+            document.body.classList.add('dark-mode');
         }
     </script>
 </body>
