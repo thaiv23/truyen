@@ -5,11 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đọc Truyện Phàm Nhân Tu Tiên</title>
     <style>
-        /* ĐÃ ĐỔI: Giao diện Light mode có nền màu trắng tinh khôi #ffffff */
         :root { --font-size: 19px; --bg-color: #ffffff; --text-color: #242424; --toolbar-bg: #ffffff; }
         body.dark-mode { --bg-color: #1a1a1a; --text-color: #cccccc; --toolbar-bg: #262626; }
         
-        /* PHÔNG CHỮ SAN FRANCISCO NGUYÊN BẢN HỆ THỐNG APPLE */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; margin: 0; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; -webkit-font-smoothing: antialiased; }
 
         #toolbar { position: sticky; top: 0; background: var(--toolbar-bg); padding: 10px 20px; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.04); z-index: 1000; height: 46px; transition: background-color 0.3s; }
@@ -19,9 +17,8 @@
         
         .control-group { position: absolute; right: 20px; display: flex; align-items: center; gap: 14px; }
         
-        #reader-container { padding: 30px 20px 60px 20px; display: flex; justify-content: center; }
+        #reader-container { padding: 30px 20px 60px 20px; display: flex; flex-direction: column; align-items: center; }
         
-        /* CĂN LỀ JUSTIFY VUÔNG VỨC VÀ KHÔNG THỤT ĐẦU DÒNG CHỈ CÁCH ĐOẠN */
         #reader { max-width: 750px; width: 100%; line-height: 1.85; font-size: var(--font-size); text-align: justify; text-justify: inter-word; }
         #reader p { margin-top: 0; margin-bottom: 18px; text-indent: 0; }
         
@@ -33,9 +30,11 @@
         .btn:hover { background: #0062a3; transform: translateY(-1px); }
         .btn:disabled { background: #cccccc !important; color: #888888; cursor: not-allowed; transform: none !important; box-shadow: none; }
         
+        .bottom-nav { max-width: 750px; width: 100%; display: flex; justify-content: space-between; margin-top: 40px; padding-top: 25px; border-top: 1px solid rgba(0,0,0,0.06); }
+        body.dark-mode .bottom-nav { border-top-color: rgba(255,255,255,0.08); }
+
         .fs-picker { padding: 6px 8px; font-size: 13px; border-radius: 6px; border: 1px solid #ccc; background: var(--toolbar-bg); color: var(--text-color); font-family: inherit; height: 32px; box-sizing: border-box; }
         
-        /* CẤU TRÚC CÔNG TẮC GẠT (TOGGLE SWITCH) DARK/LIGHT TỐI GIẢN CHUẨN IOS */
         .theme-switch-wrapper { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; color: var(--text-color); user-select: none; }
         .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -81,10 +80,15 @@
     </div>
     <div id="reader-container">
         <article id="reader">
-            <h1 id="chapter-title">Đang kết nối không gian...</h1>
+            <h1 id="chapter-title"></h1>
             <hr/>
-            <div id="chapter-content">Nội dung chương đang được truyền tải...</div>
+            <div id="chapter-content"></div>
         </article>
+        
+        <div class="bottom-nav">
+            <button id="btn-prev-bottom" onclick="goPrev()" class="btn">Chương Trước</button>
+            <button id="btn-next-bottom" onclick="goNext()" class="btn">Chương Sau</button>
+        </div>
     </div>
     <script>
         let toc = [];
@@ -92,6 +96,18 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         currentCh = parseInt(urlParams.get('ch')) || parseInt(localStorage.getItem('last-read-ch')) || 1;
+
+        window.addEventListener('scroll', () => {
+            if (currentCh) {
+                localStorage.setItem('scroll-pos-' + currentCh, window.scrollY);
+            }
+        });
+
+        // TÍNH NĂNG MỚI: Bấm phím mũi tên Trái/Phải để chuyển chương thần tốc trên máy tính
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && currentCh > 1) goPrev();
+            if (e.key === 'ArrowRight' && currentCh < toc.length) goNext();
+        });
 
         fetch('toc.json')
             .then(res => res.json())
@@ -118,13 +134,22 @@
 
             document.getElementById('btn-prev').disabled = ch <= 1;
             document.getElementById('btn-next').disabled = ch >= toc.length;
+            document.getElementById('btn-prev-bottom').disabled = ch <= 1;
+            document.getElementById('btn-next-bottom').disabled = ch >= toc.length;
+            
             document.querySelector('.chapter-picker').value = ch;
             
             fetch(`chapters/${ch}.txt`)
                 .then(res => res.text())
                 .then(text => {
                     document.getElementById('chapter-content').innerHTML = text;
-                    window.scrollTo(0, 0);
+                    
+                    const savedScroll = localStorage.getItem('scroll-pos-' + ch);
+                    if (savedScroll) {
+                        setTimeout(() => { window.scrollTo(0, parseInt(savedScroll)); }, 60);
+                    } else {
+                        window.scrollTo(0, 0);
+                    }
                 });
         }
 
@@ -132,6 +157,7 @@
         function goNext() { if (currentCh < toc.length) window.location.href = '?ch=' + (currentCh + 1); }
         function onPickerChange(val) { window.location.href = '?ch=' + val; }
         
+        /* ĐÃ FIX BUG: Trả về chính xác cấu hình 2 dấu gạch ngang */
         function changeFontSize(size) {
             document.documentElement.style.setProperty('--font-size', size);
             localStorage.setItem('personal-reader-font-size', size);
