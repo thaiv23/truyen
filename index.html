@@ -8,46 +8,52 @@
         :root { --font-size: 19px; --bg-color: #f7f3eb; --text-color: #242424; --toolbar-bg: #ffffff; }
         body.dark-mode { --bg-color: #1a1a1a; --text-color: #cccccc; --toolbar-bg: #262626; }
         
-        body { font-family: 'Times New Roman', Times, Georgia, serif; margin: 0; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; -webkit-font-smoothing: antialiased; }
-        
-        #progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background: transparent; z-index: 1001; }
-        #progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #007acc, #00bfff); transition: width 0.1s ease; }
+        /* PHÔNG CHỮ SAN FRANCISCO NGUYÊN BẢN HỆ THỐNG APPLE */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; margin: 0; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.3s, color 0.3s; -webkit-font-smoothing: antialiased; }
 
         #toolbar { position: sticky; top: 0; background: var(--toolbar-bg); padding: 10px 20px; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.04); z-index: 1000; height: 46px; transition: background-color 0.3s; }
         .nav-group { display: flex; align-items: center; justify-content: center; }
         
         .chapter-picker { padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); margin: 0 10px; width: 280px; max-width: 42vw; font-family: inherit; cursor: pointer; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; outline: none; }
         
-        .control-group { position: absolute; right: 20px; display: flex; align-items: center; gap: 10px; }
+        .control-group { position: absolute; right: 20px; display: flex; align-items: center; gap: 14px; }
         
         #reader-container { padding: 30px 20px 60px 20px; display: flex; justify-content: center; }
-        #reader { max-width: 750px; width: 100%; line-height: 1.85; font-size: var(--font-size); text-align: justify; opacity: 1; transition: opacity 0.25s ease-in-out; }
         
-        #reader h2 { font-size: 1.7em; color: var(--text-color); margin-bottom: 8px; text-align: center; font-weight: bold; }
+        /* CĂN LỀ JUSTIFY VUÔNG VỨC VÀ KHÔNG THỤT ĐẦU DÒNG CHỈ CÁCH ĐOẠN */
+        #reader { max-width: 750px; width: 100%; line-height: 1.85; font-size: var(--font-size); text-align: justify; text-justify: inter-word; }
+        #reader p { margin-top: 0; margin-bottom: 18px; text-indent: 0; }
+        
+        #reader h1 { font-size: 1.7em; color: var(--text-color); margin-bottom: 8px; text-align: center; font-weight: bold; }
         #reader hr { border: 0; border-top: 1px solid rgba(0,0,0,0.1); margin: 20px 0 35px 0; }
         body.dark-mode #reader hr { border-top: 1px solid rgba(255,255,255,0.1); }
 
         .btn { background: #007acc; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; display: inline-block; transition: all 0.2s ease; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,122,204,0.2); }
         .btn:hover { background: #0062a3; transform: translateY(-1px); }
-        .btn:active { transform: translateY(1px); }
         .btn:disabled { background: #cccccc !important; color: #888888; cursor: not-allowed; transform: none !important; box-shadow: none; }
         
-        .fs-picker { padding: 6px 8px; font-size: 13px; border-radius: 6px; border: 1px solid #ccc; background: var(--toolbar-bg); color: var(--text-color); font-family: inherit; }
-        .theme-btn { background: none; border: 1px solid #ccc; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; color: var(--text-color); background: var(--toolbar-bg); }
-
-        .fade-out { opacity: 0 !important; }
+        .fs-picker { padding: 6px 8px; font-size: 13px; border-radius: 6px; border: 1px solid #ccc; background: var(--toolbar-bg); color: var(--text-color); font-family: inherit; height: 32px; box-sizing: border-box; }
+        
+        /* 🔥 CẤU TRÚC CÔNG TẮC GẠT (TOGGLE SWITCH) DARK/LIGHT TỐI GIẢN CHUẨN IOS 🔥 */
+        .theme-switch-wrapper { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; color: var(--text-color); user-select: none; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e5ea; transition: .2s ease; border-radius: 22px; border: 1px solid #ccc; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .2s ease; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: #007acc; border-color: #0062a3; }
+        input:checked + .slider:before { transform: translateX(18px); }
+        body.dark-mode .slider { background-color: #007acc; border-color: #0062a3; }
 
         @media (max-width: 768px) {
             #toolbar { flex-direction: column; gap: 8px; padding: 10px; height: auto; position: relative; }
-            .control-group { position: static; justify-content: center; width: 100%; margin-top: 4px; }
+            .control-group { position: static; justify-content: center; width: 100%; margin-top: 4px; gap: 16px; }
             .chapter-picker { width: 160px; max-width: 38vw; font-size: 13px; margin: 0 5px; padding: 6px 8px; }
             .btn { padding: 7px 12px; font-size: 13px; }
-            #reader { text-align: left; }
+            #reader { text-align: justify; text-justify: inter-word; }
         }
     </style>
 </head>
 <body>
-    <div id="progress-container"><div id="progress-bar"></div></div>
     <div id="toolbar">
         <div class="nav-group">
             <button id="btn-prev" onclick="goPrev()" class="btn">Trước</button>
@@ -55,7 +61,14 @@
             <button id="btn-next" onclick="goNext()" class="btn">Sau</button>
         </div>
         <div class="control-group">
-            <button class="theme-btn" onclick="toggleTheme()">🌓 Mode</button>
+            <div class="theme-switch-wrapper">
+                <span>Light</span>
+                <label class="switch">
+                    <input type="checkbox" id="theme-checkbox" onchange="toggleTheme()">
+                    <span class="slider"></span>
+                </label>
+                <span>Dark</span>
+            </div>
             <select id="fs" class="fs-picker" onchange="changeFontSize(this.value)">
                 <option value="17px">Nhỏ (17px)</option>
                 <option value="19px" selected>Vừa (19px)</option>
@@ -66,11 +79,11 @@
         </div>
     </div>
     <div id="reader-container">
-        <div id="reader">
-            <h2 id="chapter-title">Đang kết nối không gian...</h2>
+        <article id="reader">
+            <h1 id="chapter-title">Đang kết nối không gian...</h1>
             <hr/>
             <div id="chapter-content">Nội dung chương đang được truyền tải...</div>
-        </div>
+        </article>
     </div>
     <script>
         let toc = [];
@@ -79,19 +92,12 @@
         const urlParams = new URLSearchParams(window.location.search);
         currentCh = parseInt(urlParams.get('ch')) || parseInt(localStorage.getItem('last-read-ch')) || 1;
 
-        window.addEventListener('scroll', () => {
-            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
-            document.getElementById('progress-bar').style.width = scrolled + '%';
-        });
-
         fetch('toc.json')
             .then(res => res.json())
             .then(data => {
                 toc = data;
                 renderToc();
-                loadChapter(currentCh, false);
+                loadChapter(currentCh);
             });
 
         function renderToc() {
@@ -101,52 +107,41 @@
             ).join('');
         }
 
-        function loadChapter(ch, animate = true) {
+        function loadChapter(ch) {
             if (ch < 1 || ch > toc.length) return;
             currentCh = ch;
             localStorage.setItem('last-read-ch', ch);
 
-            const reader = document.getElementById('reader');
+            document.getElementById('chapter-title').innerText = toc[ch-1];
+            document.title = toc[ch-1];
+
+            document.getElementById('btn-prev').disabled = ch <= 1;
+            document.getElementById('btn-next').disabled = ch >= toc.length;
+            document.querySelector('.chapter-picker').value = ch;
             
-            const processLoad = () => {
-                document.getElementById('chapter-title').innerText = toc[ch-1];
-                document.title = toc[ch-1];
-
-                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?ch=' + ch;
-                window.history.pushState({path:newUrl}, '', newUrl);
-
-                document.getElementById('btn-prev').disabled = ch <= 1;
-                document.getElementById('btn-next').disabled = ch >= toc.length;
-                document.querySelector('.chapter-picker').value = ch;
-
-                fetch(`chapters/${ch}.txt`)
-                    .then(res => res.text())
-                    .then(text => {
-                        document.getElementById('chapter-content').innerHTML = text;
-                        window.scrollTo({ top: 0, behavior: animate ? 'smooth' : 'auto' });
-                        if (animate) reader.classList.remove('fade-out');
-                    });
-            };
-
-            if (animate) {
-                reader.classList.add('fade-out');
-                setTimeout(processLoad, 250);
-            } else {
-                processLoad();
-            }
+            fetch(`chapters/${ch}.txt`)
+                .then(res => res.text())
+                .then(text => {
+                    document.getElementById('chapter-content').innerHTML = text;
+                    window.scrollTo(0, 0);
+                });
         }
 
-        function goPrev() { if (currentCh > 1) loadChapter(currentCh - 1); }
-        function goNext() { if (currentCh < toc.length) loadChapter(currentCh + 1); }
-        function onPickerChange(val) { loadChapter(parseInt(val)); }
+        function goPrev() { if (currentCh > 1) window.location.href = '?ch=' + (currentCh - 1); }
+        function goNext() { if (currentCh < toc.length) window.location.href = '?ch=' + (currentCh + 1); }
+        function onPickerChange(val) { window.location.href = '?ch=' + val; }
         
         function changeFontSize(size) {
             document.documentElement.style.setProperty('--font-size', size);
             localStorage.setItem('personal-reader-font-size', size);
         }
+        
+        // Đồng bộ hóa logic công tắc gạt bật/tắt theme
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
-            localStorage.setItem('personal-theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('personal-theme', isDark ? 'dark' : 'light');
+            document.getElementById('theme-checkbox').checked = isDark;
         }
 
         const savedSize = localStorage.getItem('personal-reader-font-size');
@@ -156,6 +151,7 @@
         }
         if (localStorage.getItem('personal-theme') === 'dark') {
             document.body.classList.add('dark-mode');
+            document.getElementById('theme-checkbox').checked = true;
         }
     </script>
 </body>
