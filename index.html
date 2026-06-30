@@ -13,7 +13,8 @@
         #toolbar { position: sticky; top: 0; background: var(--toolbar-bg); padding: 10px 20px; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.04); z-index: 1000; height: 46px; transition: background-color 0.3s; }
         .nav-group { display: flex; align-items: center; justify-content: center; }
         
-        .chapter-picker { padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); margin: 0 10px; width: 280px; max-width: 42vw; font-family: inherit; cursor: pointer; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; outline: none; }
+        .part-picker { padding: 8px 10px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); font-family: inherit; font-weight: bold; cursor: pointer; outline: none; }
+        .chapter-picker { padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); margin: 0 10px; width: 220px; max-width: 32vw; font-family: inherit; cursor: pointer; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; outline: none; }
         
         .control-group { position: absolute; right: 20px; display: flex; align-items: center; gap: 14px; }
         
@@ -45,10 +46,11 @@
         body.dark-mode .slider { background-color: #007acc; border-color: #0062a3; }
 
         @media (max-width: 768px) {
-            #toolbar { flex-direction: column; gap: 8px; padding: 10px; height: auto; position: relative; }
+            #toolbar { flex-direction: column; gap: 10px; padding: 12px; height: auto; position: relative; }
+            .nav-group { display: flex; align-items: center; justify-content: center; width: 100%; gap: 4px; }
             .control-group { position: static; justify-content: center; width: 100%; margin-top: 4px; gap: 16px; }
-            .chapter-picker { width: 160px; max-width: 38vw; font-size: 13px; margin: 0 5px; padding: 6px 8px; }
-            .btn { padding: 7px 12px; font-size: 13px; }
+            .chapter-picker { width: 160px; max-width: 45vw; font-size: 13px; margin: 0 4px; padding: 6px 8px; }
+            .btn { padding: 6px 12px; font-size: 13px; }
             #reader { text-align: justify; text-justify: inter-word; }
         }
     </style>
@@ -56,6 +58,10 @@
 <body>
     <div id="toolbar">
         <div class="nav-group">
+            <select class="part-picker" onchange="onPartChange(this.value)">
+                <option value="Phần 1">Phần 1</option>
+                <option value="Phần 2">Phần 2</option>
+            </select>
             <button id="btn-prev" onclick="goPrev()" class="btn">Trước</button>
             <select class="chapter-picker" onchange="onPickerChange(this.value)"></select>
             <button id="btn-next" onclick="goNext()" class="btn">Sau</button>
@@ -103,7 +109,6 @@
             }
         });
 
-        // TÍNH NĂNG MỚI: Bấm phím mũi tên Trái/Phải để chuyển chương thần tốc trên máy tính
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft' && currentCh > 1) goPrev();
             if (e.key === 'ArrowRight' && currentCh < toc.length) goNext();
@@ -113,15 +118,12 @@
             .then(res => res.json())
             .then(data => {
                 toc = data;
-                renderToc();
                 loadChapter(currentCh);
             });
 
-        function renderToc() {
-            const picker = document.querySelector('.chapter-picker');
-            picker.innerHTML = toc.map((title, i) => 
-                `<option value="${i+1}" ${currentCh === i+1 ? 'selected' : ''}>${title}</option>`
-            ).join('');
+        function onPartChange(selectedPart) {
+            let firstCh = toc.findIndex(c => c.part === selectedPart) + 1;
+            window.location.href = '?ch=' + firstCh;
         }
 
         function loadChapter(ch) {
@@ -129,21 +131,29 @@
             currentCh = ch;
             localStorage.setItem('last-read-ch', ch);
 
-            document.getElementById('chapter-title').innerText = toc[ch-1];
-            document.title = toc[ch-1];
+            let currentPart = toc[ch-1].part;
+            document.querySelector('.part-picker').value = currentPart;
+
+            document.getElementById('chapter-title').innerText = toc[ch-1].title;
+            document.title = toc[ch-1].title;
 
             document.getElementById('btn-prev').disabled = ch <= 1;
             document.getElementById('btn-next').disabled = ch >= toc.length;
             document.getElementById('btn-prev-bottom').disabled = ch <= 1;
             document.getElementById('btn-next-bottom').disabled = ch >= toc.length;
             
-            document.querySelector('.chapter-picker').value = ch;
+            const picker = document.querySelector('.chapter-picker');
+            picker.innerHTML = toc.map((item, i) => {
+                if (item.part === currentPart) {
+                    return `<option value="${i+1}" ${ch === i+1 ? 'selected' : ''}>${item.title}</option>`;
+                }
+                return '';
+            }).join('');
             
             fetch(`chapters/${ch}.txt`)
                 .then(res => res.text())
                 .then(text => {
                     document.getElementById('chapter-content').innerHTML = text;
-                    
                     const savedScroll = localStorage.getItem('scroll-pos-' + ch);
                     if (savedScroll) {
                         setTimeout(() => { window.scrollTo(0, parseInt(savedScroll)); }, 60);
@@ -157,7 +167,6 @@
         function goNext() { if (currentCh < toc.length) window.location.href = '?ch=' + (currentCh + 1); }
         function onPickerChange(val) { window.location.href = '?ch=' + val; }
         
-        /* ĐÃ FIX BUG: Trả về chính xác cấu hình 2 dấu gạch ngang */
         function changeFontSize(size) {
             document.documentElement.style.setProperty('--font-size', size);
             localStorage.setItem('personal-reader-font-size', size);
