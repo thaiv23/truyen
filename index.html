@@ -13,7 +13,7 @@
         #toolbar { position: sticky; top: 0; background: var(--toolbar-bg); padding: 10px 20px; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 12px rgba(0,0,0,0.04); z-index: 1000; height: 46px; transition: background-color 0.3s; }
         .nav-group { display: flex; align-items: center; justify-content: center; }
         
-        .part-picker { padding: 8px 10px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); font-family: inherit; font-weight: bold; cursor: pointer; outline: none; }
+        .part-picker { padding: 8px 10px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); font-family: inherit; font-weight: bold; cursor: pointer; outline: none; margin-right: 14px; }
         .chapter-picker { padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc; background-color: var(--toolbar-bg); color: var(--text-color); margin: 0 10px; width: 220px; max-width: 32vw; font-family: inherit; cursor: pointer; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; outline: none; }
         
         .control-group { position: absolute; right: 20px; display: flex; align-items: center; gap: 14px; }
@@ -97,32 +97,32 @@
         </div>
     </div>
     <script>
-        let toc = [];
-        let currentCh = 1;
+        var toc = [];
+        var currentCh = 1;
 
-        const urlParams = new URLSearchParams(window.location.search);
+        var urlParams = new URLSearchParams(window.location.search);
         currentCh = parseInt(urlParams.get('ch')) || parseInt(localStorage.getItem('last-read-ch')) || 1;
 
-        window.addEventListener('scroll', () => {
+        window.addEventListener('scroll', function() {
             if (currentCh) {
                 localStorage.setItem('scroll-pos-' + currentCh, window.scrollY);
             }
         });
 
-        document.addEventListener('keydown', (e) => {
+        document.addEventListener('keydown', function(e) {
             if (e.key === 'ArrowLeft' && currentCh > 1) goPrev();
             if (e.key === 'ArrowRight' && currentCh < toc.length) goNext();
         });
 
         fetch('toc.json')
-            .then(res => res.json())
-            .then(data => {
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
                 toc = data;
                 loadChapter(currentCh);
             });
 
         function onPartChange(selectedPart) {
-            let firstCh = toc.findIndex(c => c.part === selectedPart) + 1;
+            var firstCh = toc.findIndex(function(c) { return c.part === selectedPart; }) + 1;
             window.location.href = '?ch=' + firstCh;
         }
 
@@ -131,7 +131,7 @@
             currentCh = ch;
             localStorage.setItem('last-read-ch', ch);
 
-            let currentPart = toc[ch-1].part;
+            var currentPart = toc[ch-1].part;
             document.querySelector('.part-picker').value = currentPart;
 
             document.getElementById('chapter-title').innerText = toc[ch-1].title;
@@ -142,21 +142,23 @@
             document.getElementById('btn-prev-bottom').disabled = ch <= 1;
             document.getElementById('btn-next-bottom').disabled = ch >= toc.length;
             
-            const picker = document.querySelector('.chapter-picker');
-            picker.innerHTML = toc.map((item, i) => {
-                if (item.part === currentPart) {
-                    return `<option value="${i+1}" ${ch === i+1 ? 'selected' : ''}>${item.title}</option>`;
+            var picker = document.querySelector('.chapter-picker');
+            var pickerHtml = '';
+            for (var i = 0; i < toc.length; i++) {
+                if (toc[i].part === currentPart) {
+                    var selected = (ch === i + 1) ? ' selected' : '';
+                    pickerHtml += '<option value="' + (i + 1) + '"' + selected + '>' + toc[i].title + '</option>';
                 }
-                return '';
-            }).join('');
+            }
+            picker.innerHTML = pickerHtml;
             
-            fetch(`chapters/${ch}.txt`)
-                .then(res => res.text())
-                .then(text => {
+            fetch('chapters/' + ch + '.txt')
+                .then(function(res) { return res.text(); })
+                .then(function(text) {
                     document.getElementById('chapter-content').innerHTML = text;
-                    const savedScroll = localStorage.getItem('scroll-pos-' + ch);
+                    var savedScroll = localStorage.getItem('scroll-pos-' + ch);
                     if (savedScroll) {
-                        setTimeout(() => { window.scrollTo(0, parseInt(savedScroll)); }, 60);
+                        setTimeout(function() { window.scrollTo(0, parseInt(savedScroll)); }, 60);
                     } else {
                         window.scrollTo(0, 0);
                     }
@@ -174,17 +176,18 @@
         
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
+            var isDark = document.body.classList.contains('dark-mode');
             localStorage.setItem('personal-theme', isDark ? 'dark' : 'light');
             document.getElementById('theme-checkbox').checked = isDark;
         }
 
-        const savedSize = localStorage.getItem('personal-reader-font-size');
+        var savedSize = localStorage.getItem('personal-reader-font-size');
         if (savedSize) {
             document.getElementById('fs').value = savedSize;
             changeFontSize(savedSize);
         }
-        if (localStorage.getItem('personal-theme') === 'dark') {
+        var savedTheme = localStorage.getItem('personal-theme');
+        if (savedTheme === 'dark') {
             document.body.classList.add('dark-mode');
             document.getElementById('theme-checkbox').checked = true;
         }
