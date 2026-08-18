@@ -4,19 +4,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>Truyện Phàm Nhân Tu Tiên</title>
+    <link rel="preload" href="toc.json" as="fetch" crossorigin>
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('personal-theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+                var fs = localStorage.getItem('personal-reader-font-size');
+                if (fs) document.documentElement.style.setProperty('--font-size', fs);
+            } catch (e) { }
+        })();
+    </script>
     <style>
         :root {
             --font-size: 19px;
             --bg-color: #ffffff;
             --text-color: #242424;
             --toolbar-bg: #ffffff;
+            --border: rgba(0, 0, 0, 0.08);
+            --hr: rgba(0, 0, 0, 0.1);
+            color-scheme: light;
         }
 
-        body.dark-mode {
+        html.dark-mode {
             --bg-color: #1a1a1a;
             --text-color: #cccccc;
             --toolbar-bg: #262626;
+            --border: rgba(255, 255, 255, 0.08);
+            --hr: rgba(255, 255, 255, 0.1);
+            color-scheme: dark;
         }
 
         body {
@@ -36,7 +55,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            border-bottom: 1px solid var(--border);
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
             z-index: 1000;
             height: 46px;
@@ -49,37 +68,35 @@
             justify-content: center;
         }
 
-        .part-picker {
-            padding: 8px 10px;
-            font-size: 14px;
+        .part-picker,
+        .chapter-picker,
+        .fs-picker {
             border-radius: 6px;
             border: 1px solid #ccc;
             background-color: var(--toolbar-bg);
             color: var(--text-color);
             font-family: inherit;
-            font-weight: bold;
             cursor: pointer;
             outline: none;
+        }
+
+        .part-picker {
+            padding: 8px 10px;
+            font-size: 14px;
+            font-weight: bold;
             margin-right: 14px;
         }
 
         .chapter-picker {
             padding: 8px 12px;
             font-size: 14px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            background-color: var(--toolbar-bg);
-            color: var(--text-color);
+            font-weight: bold;
             margin: 0 10px;
             width: 220px;
             max-width: 32vw;
-            font-family: inherit;
-            cursor: pointer;
-            font-weight: bold;
             text-overflow: ellipsis;
             overflow: hidden;
             white-space: nowrap;
-            outline: none;
         }
 
         .control-group {
@@ -115,19 +132,22 @@
         #reader h1 {
             font-size: 1.7em;
             color: var(--text-color);
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             text-align: center;
             font-weight: bold;
         }
 
-        #reader hr {
-            border: 0;
-            border-top: 1px solid rgba(0, 0, 0, 0.1);
-            margin: 20px 0 35px 0;
+        #ch-meta {
+            text-align: center;
+            font-size: 13px;
+            opacity: 0.55;
+            margin: 0 0 8px;
         }
 
-        body.dark-mode #reader hr {
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        #reader hr {
+            border: 0;
+            border-top: 1px solid var(--hr);
+            margin: 20px 0 35px 0;
         }
 
         .btn {
@@ -140,7 +160,7 @@
             font-size: 14px;
             font-weight: 500;
             display: inline-block;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease, transform 0.2s ease;
             white-space: nowrap;
             box-shadow: 0 2px 4px rgba(0, 122, 204, 0.2);
         }
@@ -151,10 +171,10 @@
         }
 
         .btn:disabled {
-            background: #cccccc !important;
+            background: #cccccc;
             color: #888888;
             cursor: not-allowed;
-            transform: none !important;
+            transform: none;
             box-shadow: none;
         }
 
@@ -165,21 +185,12 @@
             justify-content: space-between;
             margin-top: 40px;
             padding-top: 25px;
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
-        }
-
-        body.dark-mode .bottom-nav {
-            border-top-color: rgba(255, 255, 255, 0.08);
+            border-top: 1px solid var(--border);
         }
 
         .fs-picker {
             padding: 6px 8px;
             font-size: 13px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            background: var(--toolbar-bg);
-            color: var(--text-color);
-            font-family: inherit;
             height: 32px;
             box-sizing: border-box;
         }
@@ -242,9 +253,21 @@
             transform: translateX(18px);
         }
 
-        body.dark-mode .slider {
+        html.dark-mode .slider {
             background-color: #007acc;
             border-color: #0062a3;
+        }
+
+        .loading {
+            text-align: center;
+            opacity: 0.6;
+            padding: 48px 0;
+        }
+
+        .error {
+            text-align: center;
+            color: #c0392b;
+            padding: 48px 0;
         }
 
         @media (max-width: 768px) {
@@ -257,9 +280,6 @@
             }
 
             .nav-group {
-                display: flex;
-                align-items: center;
-                justify-content: center;
                 width: 100%;
                 gap: 4px;
             }
@@ -284,10 +304,14 @@
                 padding: 6px 12px;
                 font-size: 13px;
             }
+        }
 
-            #reader {
-                text-align: justify;
-                text-justify: inter-word;
+        @media (prefers-reduced-motion: reduce) {
+            body,
+            .btn,
+            .slider,
+            .slider:before {
+                transition: none;
             }
         }
     </style>
@@ -296,24 +320,21 @@
 <body>
     <div id="toolbar">
         <div class="nav-group">
-            <select class="part-picker">
-                <option value="Phần 1">Phần 1</option>
-                <option value="Phần 2">Phần 2</option>
-            </select>
-            <button id="btn-prev" class="btn">Trước</button>
-            <select class="chapter-picker"></select>
-            <button id="btn-next" class="btn">Sau</button>
+            <select class="part-picker" aria-label="Chọn phần"></select>
+            <button type="button" id="btn-prev" class="btn" aria-label="Chương trước">Trước</button>
+            <select class="chapter-picker" aria-label="Chọn chương"></select>
+            <button type="button" id="btn-next" class="btn" aria-label="Chương sau">Sau</button>
         </div>
         <div class="control-group">
             <div class="theme-switch-wrapper">
                 <span>Light</span>
                 <label class="switch">
-                    <input type="checkbox" id="theme-checkbox">
+                    <input type="checkbox" id="theme-checkbox" aria-label="Chế độ tối">
                     <span class="slider"></span>
                 </label>
                 <span>Dark</span>
             </div>
-            <select id="fs" class="fs-picker">
+            <select id="fs" class="fs-picker" aria-label="Cỡ chữ">
                 <option value="17px">Nhỏ (17px)</option>
                 <option value="19px" selected>Vừa (19px)</option>
                 <option value="22px">Lớn (22px)</option>
@@ -325,38 +346,39 @@
     <div id="reader-container">
         <article id="reader">
             <h1 id="chapter-title"></h1>
+            <p id="ch-meta"></p>
             <hr />
             <div id="chapter-content"></div>
         </article>
 
         <div class="bottom-nav">
-            <button id="btn-prev-bottom" class="btn">Chương Trước</button>
-            <button id="btn-next-bottom" class="btn">Chương Sau</button>
+            <button type="button" id="btn-prev-bottom" class="btn">Chương Trước</button>
+            <button type="button" id="btn-next-bottom" class="btn">Chương Sau</button>
         </div>
     </div>
     <script type="module">
-        // `type="module"` gives us strict mode + top-level scope for free
-        // (no globals leaking onto `window`, unlike the original `var`-based script).
-
         const STORAGE_KEYS = {
             lastChapter: 'last-read-ch',
             fontSize: 'personal-reader-font-size',
             theme: 'personal-theme',
-            scrollPos: (ch) => `scroll-pos-${ch}`
+            scrollMap: 'scroll-pos-map'
         };
+        const CACHE_MAX = 12;
+        const SCROLL_MAX = 80;
 
-        // ---- State ----
         let toc = [];
         let currentCh = 1;
-        let currentPart = null;   // tracks which part's <option>s are currently rendered, so we skip needless rebuilds
-        let partIndex = new Map(); // Map<partName, chapterIndex[]> — built once, avoids re-scanning `toc` on every navigation
+        let currentPart = null;
+        let partIndex = new Map();
         let scrollSaveTimer = null;
+        let fetchAbort = null;
+        const chapterCache = new Map();
 
-        // ---- Cache DOM refs once instead of re-querying on every navigation ----
         const el = {
             partPicker: document.querySelector('.part-picker'),
             chapterPicker: document.querySelector('.chapter-picker'),
             title: document.getElementById('chapter-title'),
+            meta: document.getElementById('ch-meta'),
             content: document.getElementById('chapter-content'),
             btnPrev: document.getElementById('btn-prev'),
             btnNext: document.getElementById('btn-next'),
@@ -365,35 +387,85 @@
             fs: document.getElementById('fs'),
             themeCheckbox: document.getElementById('theme-checkbox')
         };
-        const navButtons = [el.btnPrev, el.btnNext, el.btnPrevBottom, el.btnNextBottom];
 
-        const urlParams = new URLSearchParams(window.location.search);
-        currentCh = parseInt(urlParams.get('ch')) || parseInt(localStorage.getItem(STORAGE_KEYS.lastChapter)) || 1;
-
-        // ---- Navigation ----
-        const goPrev = () => { if (currentCh > 1) window.location.href = `?ch=${currentCh - 1}`; };
-        const goNext = () => { if (currentCh < toc.length) window.location.href = `?ch=${currentCh + 1}`; };
-        const onPickerChange = (val) => { window.location.href = `?ch=${val}`; };
-
-        const onPartChange = (selectedPart) => {
-            const [firstCh = 1] = partIndex.get(selectedPart) ?? [];
-            window.location.href = `?ch=${firstCh}`;
+        const migrateOldScrollKeys = () => {
+            if (localStorage.getItem(STORAGE_KEYS.scrollMap) != null) return;
+            const map = {};
+            const stale = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith('scroll-pos-')) continue;
+                const ch = k.slice('scroll-pos-'.length);
+                const y = parseInt(localStorage.getItem(k), 10);
+                if (ch && Number.isFinite(y)) map[ch] = y;
+                stale.push(k);
+            }
+            localStorage.setItem(STORAGE_KEYS.scrollMap, JSON.stringify(map));
+            stale.forEach((k) => localStorage.removeItem(k));
         };
 
-        // ---- Preferences ----
+        const readScrollMap = () => {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEYS.scrollMap)) || {};
+            } catch {
+                return {};
+            }
+        };
+
+        const writeScrollMap = (map) => {
+            const keys = Object.keys(map);
+            if (keys.length > SCROLL_MAX) {
+                for (const k of keys.slice(0, keys.length - SCROLL_MAX)) delete map[k];
+            }
+            localStorage.setItem(STORAGE_KEYS.scrollMap, JSON.stringify(map));
+        };
+
+        const saveScrollNow = () => {
+            if (!currentCh) return;
+            const map = readScrollMap();
+            map[currentCh] = Math.round(window.scrollY);
+            writeScrollMap(map);
+        };
+
+        const cacheSet = (ch, html) => {
+            if (chapterCache.has(ch)) chapterCache.delete(ch);
+            chapterCache.set(ch, html);
+            while (chapterCache.size > CACHE_MAX) {
+                chapterCache.delete(chapterCache.keys().next().value);
+            }
+        };
+
+        const cacheGet = (ch) => {
+            if (!chapterCache.has(ch)) return null;
+            const html = chapterCache.get(ch);
+            cacheSet(ch, html);
+            return html;
+        };
+
+        const chapterUrl = (ch) => `?ch=${ch}`;
+
+        const goTo = (ch, { replace = false } = {}) => {
+            if (ch < 1 || ch > toc.length || ch === currentCh) return;
+            saveScrollNow();
+            if (replace) history.replaceState({ ch }, '', chapterUrl(ch));
+            else history.pushState({ ch }, '', chapterUrl(ch));
+            loadChapter(ch);
+        };
+
+        const goPrev = () => goTo(currentCh - 1);
+        const goNext = () => goTo(currentCh + 1);
+
         const changeFontSize = (size) => {
             document.documentElement.style.setProperty('--font-size', size);
             localStorage.setItem(STORAGE_KEYS.fontSize, size);
         };
 
         const toggleTheme = () => {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
+            const isDark = document.documentElement.classList.toggle('dark-mode');
             localStorage.setItem(STORAGE_KEYS.theme, isDark ? 'dark' : 'light');
             el.themeCheckbox.checked = isDark;
         };
 
-        // Build Map<part, [chapterIndex, ...]> once so loadChapter never has to loop the full toc.
         const buildPartIndex = () => {
             partIndex = toc.reduce((map, { part }, i) => {
                 const list = map.get(part) ?? [];
@@ -403,8 +475,17 @@
             }, new Map());
         };
 
-        // Only rebuilds the <option> list when the part actually changes;
-        // switching chapters within the same part just updates the selected value.
+        const renderPartPicker = () => {
+            const frag = document.createDocumentFragment();
+            for (const name of partIndex.keys()) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                frag.appendChild(opt);
+            }
+            el.partPicker.replaceChildren(frag);
+        };
+
         const renderChapterPicker = (part, ch) => {
             if (part !== currentPart) {
                 currentPart = part;
@@ -412,7 +493,7 @@
                 for (const idx of partIndex.get(part) ?? []) {
                     const opt = document.createElement('option');
                     opt.value = idx;
-                    opt.textContent = toc[idx - 1].title; // textContent avoids HTML-escaping bugs from string concatenation
+                    opt.textContent = toc[idx - 1].title;
                     frag.appendChild(opt);
                 }
                 el.chapterPicker.replaceChildren(frag);
@@ -421,49 +502,78 @@
         };
 
         const restoreScrollPosition = (ch) => {
-            const saved = localStorage.getItem(STORAGE_KEYS.scrollPos(ch));
-            if (!saved) {
-                window.scrollTo(0, 0);
-                return;
-            }
-            // Double rAF ensures content has been laid out before we jump the scroll position
+            const saved = readScrollMap()[ch];
+            const y = saved ? parseInt(saved, 10) : 0;
             requestAnimationFrame(() => {
-                requestAnimationFrame(() => window.scrollTo(0, parseInt(saved)));
+                requestAnimationFrame(() => window.scrollTo(0, y));
             });
         };
 
-        const fetchChapterText = async (ch) => {
-            try {
-                const res = await fetch(`chapters/${ch}.txt`);
-                if (!res.ok) throw new Error(`Không tải được chương ${ch}`);
-                el.content.innerHTML = await res.text();
-                restoreScrollPosition(ch);
-            } catch (err) {
-                el.content.textContent = 'Không tải được nội dung chương.';
-                console.error(err);
-            }
+        const prefetchChapter = (ch) => {
+            if (ch < 1 || ch > toc.length || chapterCache.has(ch)) return;
+            fetch(`chapters/${ch}.txt`, { cache: 'force-cache' })
+                .then((res) => (res.ok ? res.text() : null))
+                .then((html) => { if (html) cacheSet(ch, html); })
+                .catch(() => { });
         };
 
-        const loadChapter = (ch) => {
+        const fetchChapterText = async (ch, signal) => {
+            const cached = cacheGet(ch);
+            if (cached != null) return cached;
+            const res = await fetch(`chapters/${ch}.txt`, { signal, cache: 'force-cache' });
+            if (!res.ok) throw new Error(`Không tải được chương ${ch}`);
+            const html = await res.text();
+            cacheSet(ch, html);
+            return html;
+        };
+
+        const loadChapter = async (ch) => {
             if (ch < 1 || ch > toc.length) return;
             currentCh = ch;
             localStorage.setItem(STORAGE_KEYS.lastChapter, ch);
 
             const entry = toc[ch - 1];
+            const partChapters = partIndex.get(entry.part) ?? [];
+            const posInPart = partChapters.indexOf(ch) + 1;
+
             el.partPicker.value = entry.part;
             el.title.textContent = entry.title;
+            el.meta.textContent = `${entry.part} · ${posInPart}/${partChapters.length} · Tổng ${ch}/${toc.length}`;
             document.title = entry.title;
 
             el.btnPrev.disabled = el.btnPrevBottom.disabled = ch <= 1;
             el.btnNext.disabled = el.btnNextBottom.disabled = ch >= toc.length;
-
             renderChapterPicker(entry.part, ch);
-            fetchChapterText(ch);
+
+            if (fetchAbort) fetchAbort.abort();
+            fetchAbort = new AbortController();
+            const { signal } = fetchAbort;
+
+            const cached = cacheGet(ch);
+            if (cached == null) {
+                el.content.innerHTML = '<p class="loading">Đang tải chương…</p>';
+            }
+
+            try {
+                const html = cached ?? await fetchChapterText(ch, signal);
+                if (signal.aborted) return;
+                el.content.innerHTML = html;
+                restoreScrollPosition(ch);
+                prefetchChapter(ch + 1);
+                prefetchChapter(ch + 2);
+                prefetchChapter(ch - 1);
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                el.content.innerHTML = '<p class="error">Không tải được nội dung chương.</p>';
+                console.error(err);
+            }
         };
 
-        // ---- Wire up events (previously inline onclick/onchange in the HTML) ----
-        el.partPicker.addEventListener('change', (e) => onPartChange(e.target.value));
-        el.chapterPicker.addEventListener('change', (e) => onPickerChange(e.target.value));
+        el.partPicker.addEventListener('change', (e) => {
+            const [firstCh = 1] = partIndex.get(e.target.value) ?? [];
+            goTo(firstCh);
+        });
+        el.chapterPicker.addEventListener('change', (e) => goTo(parseInt(e.target.value, 10)));
         el.fs.addEventListener('change', (e) => changeFontSize(e.target.value));
         el.themeCheckbox.addEventListener('change', toggleTheme);
         el.btnPrev.addEventListener('click', goPrev);
@@ -471,39 +581,61 @@
         el.btnPrevBottom.addEventListener('click', goPrev);
         el.btnNextBottom.addEventListener('click', goNext);
 
-        // Debounce scroll-position writes: the original fired on every scroll event
-        // (50-100+/sec while scrolling); now it only writes ~150ms after scrolling stops.
-        window.addEventListener('scroll', () => {
-            clearTimeout(scrollSaveTimer);
-            scrollSaveTimer = setTimeout(() => {
-                if (currentCh) localStorage.setItem(STORAGE_KEYS.scrollPos(currentCh), window.scrollY);
-            }, 150);
-        }, { passive: true });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft' && currentCh > 1) goPrev();
-            if (e.key === 'ArrowRight' && currentCh < toc.length) goNext();
+        window.addEventListener('popstate', (e) => {
+            const ch = e.state?.ch ?? parseInt(new URLSearchParams(location.search).get('ch'), 10);
+            if (ch && ch !== currentCh) {
+                saveScrollNow();
+                loadChapter(ch);
+            }
         });
 
-        // ---- Apply saved preferences on load ----
+        window.addEventListener('scroll', () => {
+            clearTimeout(scrollSaveTimer);
+            scrollSaveTimer = setTimeout(saveScrollNow, 150);
+        }, { passive: true });
+
+        window.addEventListener('pagehide', saveScrollNow);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.matches('select, input, textarea')) return;
+            if (e.key === 'ArrowLeft') goPrev();
+            if (e.key === 'ArrowRight') goNext();
+        });
+
         const savedSize = localStorage.getItem(STORAGE_KEYS.fontSize);
         if (savedSize) {
             el.fs.value = savedSize;
             changeFontSize(savedSize);
         }
-        if (localStorage.getItem(STORAGE_KEYS.theme) === 'dark') {
-            document.body.classList.add('dark-mode');
+        if (document.documentElement.classList.contains('dark-mode')) {
             el.themeCheckbox.checked = true;
         }
 
-        // ---- Boot ----
+        const parseToc = (data) => {
+            if (Array.isArray(data)) return data;
+            if (data?.parts) {
+                return data.parts.flatMap(({ name, titles }) =>
+                    titles.map((title) => ({ part: name, title }))
+                );
+            }
+            throw new Error('toc.json không đúng định dạng');
+        };
+
         const init = async () => {
             try {
-                const res = await fetch('toc.json');
+                const res = await fetch('toc.json', { cache: 'force-cache', credentials: 'omit' });
                 if (!res.ok) throw new Error(`Không tải được toc.json (HTTP ${res.status})`);
-                toc = await res.json();
+                toc = parseToc(await res.json());
                 buildPartIndex();
-                loadChapter(currentCh);
+                renderPartPicker();
+                migrateOldScrollKeys();
+
+                const urlCh = parseInt(new URLSearchParams(location.search).get('ch'), 10);
+                const savedCh = parseInt(localStorage.getItem(STORAGE_KEYS.lastChapter), 10);
+                currentCh = 0;
+                const startCh = Math.min(Math.max(urlCh || savedCh || 1, 1), toc.length);
+                history.replaceState({ ch: startCh }, '', chapterUrl(startCh));
+                loadChapter(startCh);
             } catch (err) {
                 el.title.textContent = 'Lỗi tải danh sách chương';
                 console.error(err);
