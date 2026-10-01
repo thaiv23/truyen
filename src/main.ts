@@ -67,7 +67,7 @@ const mobilePickerMq = window.matchMedia("(max-width: 768px)");
 
 const isPickerOpen = (picker: Picker): boolean => picker.trigger.getAttribute("aria-expanded") === "true";
 
-const usesSheet = (_picker: Picker): boolean => mobilePickerMq.matches;
+const usesSheet = (picker: Picker): boolean => mobilePickerMq.matches && picker === el.chapterPicker;
 
 const clearMenuPos = (menu: HTMLElement): void => {
   menu.style.top = "";
@@ -95,7 +95,13 @@ const positionPickerMenu = (picker: Picker): void => {
   const gap = 6;
   const view = viewportBox();
   const sheet = usesSheet(picker);
-  const minW = sheet ? view.width - pad * 2 : picker === el.chapterPicker ? 280 : picker === el.fs ? 140 : triggerRect.width;
+  const minW = sheet
+    ? view.width - pad * 2
+    : picker === el.chapterPicker
+      ? 280
+      : picker === el.fs
+        ? Math.max(triggerRect.width, 108)
+        : triggerRect.width;
   const widthCap = Math.max(0, view.width - pad * 2);
 
   clearMenuPos(menu);

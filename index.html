@@ -335,14 +335,27 @@
         }
 
         .fs-picker {
-            padding: 6px 8px;
-            font-size: 13px;
-            height: 32px;
+            padding: 4px 8px;
+            font-size: 12px;
+            height: 28px;
+            min-width: 7.5em;
             box-sizing: border-box;
         }
 
         .fs-picker-wrap .picker-menu {
-            min-width: 140px;
+            min-width: 0;
+            width: max-content;
+            max-width: 148px;
+            padding: 4px;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+        }
+
+        .fs-picker-wrap .picker-option {
+            padding: 6px 10px;
+            font-size: 13px;
+            line-height: 1.25;
+            border-radius: 8px;
         }
 
         .theme-switch-wrapper {
@@ -468,9 +481,15 @@
         html.home-mode #home {
             min-height: calc(100vh - 85px);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             box-sizing: border-box;
+        }
+
+        html.home-mode .book-grid {
+            width: 100%;
+            flex: none;
         }
 
         html.home-mode .book-card {
@@ -478,6 +497,7 @@
             position: relative;
             isolation: isolate;
             overflow: visible;
+            flex: none;
             padding: 11px 11px 0;
             border: 0;
             border-radius: var(--glass-radius);
@@ -547,6 +567,7 @@
         html.home-mode .book-cover {
             position: relative;
             z-index: 1;
+            flex: none;
             border-radius: 16px;
             background: rgba(8, 16, 28, 0.28);
             box-shadow:
@@ -604,15 +625,21 @@
         }
 
         .book-cover {
+            position: relative;
+            width: 100%;
             aspect-ratio: 3 / 4;
+            flex: none;
             overflow: hidden;
             background: #111;
         }
 
         .book-cover img {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: center top;
             display: block;
         }
 
@@ -700,8 +727,10 @@
             .book-grid {
                 grid-template-columns: 1fr;
                 max-width: 360px;
+                width: 100%;
                 margin: 0 auto;
                 gap: 22px;
+                flex: none;
             }
 
             html.home-mode,
@@ -738,7 +767,9 @@
                 -webkit-overflow-scrolling: touch;
                 overscroll-behavior: contain;
                 justify-content: flex-start;
+                align-items: center;
                 padding-top: 8px;
+                padding-bottom: 32px;
             }
         }
 
