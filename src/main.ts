@@ -11,6 +11,7 @@ type ScrollMap = Record<string, number>;
 
 const STORAGE_KEYS = {
   lastChapter: "last-read-ch",
+  lastByPart: "last-read-by-part",
   fontSize: "personal-reader-font-size",
   theme: "personal-theme",
   scrollMap: "scroll-pos-map",
@@ -25,18 +26,126 @@ function must<T extends Element>(selector: string): T {
   return node as T;
 }
 
+type PickerOption = { value: string; label: string };
+
+type Picker = {
+  wrap: HTMLElement;
+  trigger: HTMLButtonElement;
+  valueEl: HTMLElement;
+  menu: HTMLElement;
+  options: PickerOption[];
+  value: string;
+  onChange: ((value: string) => void) | null;
+};
+
+const bindPicker = (wrapSelector: string, triggerSelector: string): Picker => {
+  const wrap = must<HTMLElement>(wrapSelector);
+  const trigger = must<HTMLButtonElement>(triggerSelector);
+  const valueEl = must<HTMLElement>(`${wrapSelector} .picker-value`);
+  const menu = must<HTMLElement>(`${wrapSelector} .picker-menu`);
+  return { wrap, trigger, valueEl, menu, options: [], value: "", onChange: null };
+};
+
 const el = {
-  partPicker: must<HTMLSelectElement>(".part-picker"),
-  chapterPicker: must<HTMLSelectElement>(".chapter-picker"),
+  partPicker: bindPicker(".part-picker-wrap", ".part-picker"),
+  chapterPicker: bindPicker(".chapter-picker-wrap", ".chapter-picker"),
   title: must<HTMLHeadingElement>("#chapter-title"),
   content: must<HTMLElement>("#chapter-content"),
+  reader: must<HTMLElement>("#reader"),
   btnPrev: must<HTMLButtonElement>("#btn-prev"),
   btnNext: must<HTMLButtonElement>("#btn-next"),
   btnPrevBottom: must<HTMLButtonElement>("#btn-prev-bottom"),
   btnNextBottom: must<HTMLButtonElement>("#btn-next-bottom"),
-  fs: must<HTMLSelectElement>("#fs"),
+  fs: bindPicker(".fs-picker-wrap", "#fs"),
   themeCheckbox: must<HTMLInputElement>("#theme-checkbox"),
+  bookCards: [...document.querySelectorAll<HTMLAnchorElement>(".book-card")],
 };
+
+const pickers = [el.partPicker, el.chapterPicker, el.fs];
+
+const isPickerOpen = (picker: Picker): boolean => picker.trigger.getAttribute("aria-expanded") === "true";
+
+const closePicker = (picker: Picker): void => {
+  picker.trigger.setAttribute("aria-expanded", "false");
+  picker.menu.hidden = true;
+};
+
+const closeAllPickers = (): void => {
+  pickers.forEach(closePicker);
+};
+
+const setPickerValue = (picker: Picker, value: string): void => {
+  picker.value = value;
+  const match = picker.options.find((opt) => opt.value === value);
+  picker.valueEl.textContent = match?.label ?? value;
+  picker.menu.querySelectorAll<HTMLButtonElement>(".picker-option").forEach((btn) => {
+    const selected = btn.dataset.value === value;
+    btn.classList.toggle("is-selected", selected);
+    btn.setAttribute("aria-selected", selected ? "true" : "false");
+  });
+};
+
+const renderPickerOptions = (picker: Picker, options: PickerOption[], selected: string): void => {
+  picker.options = options;
+  const frag = document.createDocumentFragment();
+  for (const opt of options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-option";
+    btn.role = "option";
+    btn.dataset.value = opt.value;
+    btn.textContent = opt.label;
+    frag.appendChild(btn);
+  }
+  picker.menu.replaceChildren(frag);
+  setPickerValue(picker, selected);
+};
+
+const openPicker = (picker: Picker): void => {
+  pickers.forEach((other) => {
+    if (other !== picker) closePicker(other);
+  });
+  picker.trigger.setAttribute("aria-expanded", "true");
+  picker.menu.hidden = false;
+  const selected = picker.menu.querySelector<HTMLElement>(".picker-option.is-selected");
+  selected?.scrollIntoView({ block: "nearest" });
+};
+
+const bindPickerEvents = (picker: Picker): void => {
+  picker.trigger.addEventListener("click", () => {
+    if (isPickerOpen(picker)) closePicker(picker);
+    else openPicker(picker);
+  });
+  picker.menu.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".picker-option");
+    if (!btn?.dataset.value) return;
+    const value = btn.dataset.value;
+    closePicker(picker);
+    if (value === picker.value) return;
+    setPickerValue(picker, value);
+    picker.onChange?.(value);
+  });
+  picker.menu.addEventListener("mouseover", (e) => {
+    const btn = (e.target as HTMLElement).closest(".picker-option");
+    if (!btn) return;
+    picker.menu.querySelectorAll(".picker-option.is-active").forEach((node) => node.classList.remove("is-active"));
+    btn.classList.add("is-active");
+  });
+};
+
+pickers.forEach(bindPickerEvents);
+
+document.addEventListener("click", (e) => {
+  if (pickers.some((picker) => picker.wrap.contains(e.target as Node))) return;
+  closeAllPickers();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!pickers.some(isPickerOpen)) return;
+  closeAllPickers();
+  e.preventDefault();
+});
 
 let toc: Chapter[] = [];
 let currentCh = 1;
@@ -78,19 +187,67 @@ const writeScrollMap = (map: ScrollMap): void => {
   localStorage.setItem(STORAGE_KEYS.scrollMap, JSON.stringify(map));
 };
 
+const isHomeMode = (): boolean => document.documentElement.classList.contains("home-mode");
+
+const readLastByPart = (): Record<string, number> => {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEYS.lastByPart) ?? "{}");
+    if (parsed && typeof parsed === "object") return parsed as Record<string, number>;
+    return {};
+  } catch {
+    return {};
+  }
+};
+
+const writeLastByPart = (map: Record<string, number>): void => {
+  localStorage.setItem(STORAGE_KEYS.lastByPart, JSON.stringify(map));
+};
+
+const rememberChapter = (ch: number): void => {
+  localStorage.setItem(STORAGE_KEYS.lastChapter, String(ch));
+  const entry = toc[ch - 1];
+  if (!entry) return;
+  const map = readLastByPart();
+  map[entry.part] = ch;
+  writeLastByPart(map);
+};
+
+const seedLastByPart = (): void => {
+  const map = readLastByPart();
+  if (Object.keys(map).length) return;
+  const saved = parseInt(localStorage.getItem(STORAGE_KEYS.lastChapter) ?? "", 10);
+  const entry = toc[saved - 1];
+  if (!entry) return;
+  map[entry.part] = saved;
+  writeLastByPart(map);
+};
+
 const saveScrollNow = (): void => {
-  if (!currentCh) return;
+  if (!currentCh || isHomeMode()) return;
   const map = readScrollMap();
   map[String(currentCh)] = Math.round(window.scrollY);
   writeScrollMap(map);
 };
 
-const chapterUrl = (ch: number): string => `?ch=${ch}`;
+const chapterUrl = (ch: number): string => `${import.meta.env.BASE_URL}${ch}.html`;
+
+const chapterFromPath = (): number => {
+  const match = /\/(\d+)\.html$/.exec(location.pathname);
+  return match ? parseInt(match[1], 10) : 0;
+};
 
 const goTo = (ch: number): void => {
   if (ch < 1 || ch > toc.length || ch === currentCh) return;
   saveScrollNow();
-  localStorage.setItem(STORAGE_KEYS.lastChapter, String(ch));
+  rememberChapter(ch);
+  window.location.href = chapterUrl(ch);
+};
+
+const openBook = (part: string): void => {
+  const chapters = partIndex.get(part) ?? [];
+  const saved = readLastByPart()[part];
+  const ch = saved && chapters.includes(saved) ? saved : (chapters[0] ?? 1);
+  rememberChapter(ch);
   window.location.href = chapterUrl(ch);
 };
 
@@ -114,7 +271,7 @@ const changeFontSize = (size: string): void => {
   document.documentElement.style.setProperty("--font-size", resolved);
   document.documentElement.style.setProperty("--line-height", FONT_PRESETS[resolved]!);
   localStorage.setItem(STORAGE_KEYS.fontSize, resolved);
-  el.fs.value = resolved;
+  setPickerValue(el.fs, resolved);
 };
 
 const toggleTheme = (): void => {
@@ -133,29 +290,27 @@ const buildPartIndex = (): void => {
 };
 
 const renderPartPicker = (): void => {
-  const frag = document.createDocumentFragment();
-  for (const name of partIndex.keys()) {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    frag.appendChild(opt);
-  }
-  el.partPicker.replaceChildren(frag);
+  renderPickerOptions(
+    el.partPicker,
+    [...partIndex.keys()].map((name) => ({ value: name, label: name })),
+    [...partIndex.keys()][0] ?? "",
+  );
 };
 
 const renderChapterPicker = (part: string, ch: number): void => {
   if (part !== currentPart) {
     currentPart = part;
-    const frag = document.createDocumentFragment();
-    for (const idx of partIndex.get(part) ?? []) {
-      const opt = document.createElement("option");
-      opt.value = String(idx);
-      opt.textContent = toc[idx - 1]?.title ?? "";
-      frag.appendChild(opt);
-    }
-    el.chapterPicker.replaceChildren(frag);
+    renderPickerOptions(
+      el.chapterPicker,
+      (partIndex.get(part) ?? []).map((idx) => ({
+        value: String(idx),
+        label: toc[idx - 1]?.title ?? "",
+      })),
+      String(ch),
+    );
+    return;
   }
-  el.chapterPicker.value = String(ch);
+  setPickerValue(el.chapterPicker, String(ch));
 };
 
 const restoreScrollPosition = (ch: number): void => {
@@ -185,22 +340,27 @@ const fetchChapterText = async (ch: number): Promise<string> => {
 const loadChapter = async (ch: number): Promise<void> => {
   if (ch < 1 || ch > toc.length) return;
   currentCh = ch;
-  localStorage.setItem(STORAGE_KEYS.lastChapter, String(ch));
+  rememberChapter(ch);
 
   const entry = toc[ch - 1];
   if (!entry) return;
 
-  el.partPicker.value = entry.part;
+  setPickerValue(el.partPicker, entry.part);
   el.title.textContent = entry.title;
   document.title = entry.title;
 
   el.btnPrev.disabled = el.btnPrevBottom.disabled = ch <= 1;
   el.btnNext.disabled = el.btnNextBottom.disabled = ch >= toc.length;
   renderChapterPicker(entry.part, ch);
-  el.content.innerHTML = '<p class="loading">Đang tải chương…</p>';
+  const prerendered = el.reader.getAttribute("data-prerendered-ch") === String(ch);
+  if (!prerendered) {
+    el.content.innerHTML = '<p class="loading">Đang tải chương…</p>';
+  }
 
   try {
-    el.content.innerHTML = await fetchChapterText(ch);
+    if (!prerendered) {
+      el.content.innerHTML = await fetchChapterText(ch);
+    }
     restoreScrollPosition(ch);
     prefetchChapter(ch + 1);
     prefetchChapter(ch + 2);
@@ -249,17 +409,16 @@ const loadToc = async (): Promise<Chapter[]> => {
   return parseToc(data);
 };
 
-el.partPicker.addEventListener("change", (e) => {
-  const value = (e.target as HTMLSelectElement).value;
+el.partPicker.onChange = (value) => {
   const [firstCh = 1] = partIndex.get(value) ?? [];
   goTo(firstCh);
-});
-el.chapterPicker.addEventListener("change", (e) => {
-  goTo(parseInt((e.target as HTMLSelectElement).value, 10));
-});
-el.fs.addEventListener("change", (e) => {
-  changeFontSize((e.target as HTMLSelectElement).value);
-});
+};
+el.chapterPicker.onChange = (value) => {
+  goTo(parseInt(value, 10));
+};
+el.fs.onChange = (value) => {
+  changeFontSize(value);
+};
 el.themeCheckbox.addEventListener("change", toggleTheme);
 el.btnPrev.addEventListener("click", goPrev);
 el.btnNext.addEventListener("click", goNext);
@@ -278,12 +437,21 @@ window.addEventListener(
 window.addEventListener("pagehide", saveScrollNow);
 
 document.addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLSelectElement || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+  if (isHomeMode()) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
     return;
   }
+  if (pickers.some(isPickerOpen)) return;
   if (e.key === "ArrowLeft") goPrev();
   if (e.key === "ArrowRight") goNext();
 });
+
+const FONT_OPTIONS: PickerOption[] = [
+  { value: "17px", label: "Nhỏ" },
+  { value: "19px", label: "Bình thường" },
+  { value: "22px", label: "Lớn" },
+];
+renderPickerOptions(el.fs, FONT_OPTIONS, "19px");
 
 const savedSize = localStorage.getItem(STORAGE_KEYS.fontSize);
 changeFontSize(normalizeFontSize(savedSize));
@@ -291,16 +459,67 @@ if (document.documentElement.classList.contains("dark-mode")) {
   el.themeCheckbox.checked = true;
 }
 
+const bindHomeCards = (): void => {
+  const parts = [...partIndex.keys()];
+  const lastByPart = readLastByPart();
+  el.bookCards.forEach((card, i) => {
+    const part = parts[i];
+    if (!part) return;
+    const chapters = partIndex.get(part) ?? [];
+    const saved = lastByPart[part];
+    const ch = saved && chapters.includes(saved) ? saved : (chapters[0] ?? 1);
+    card.href = chapterUrl(ch);
+    const status = card.querySelector(".book-status");
+    if (status) {
+      status.textContent =
+        saved && chapters.includes(saved) ? `Đọc tiếp · ${toc[saved - 1]?.title ?? ""}` : "Bắt đầu đọc";
+    }
+    card.addEventListener("click", (e) => {
+      e.preventDefault();
+      openBook(part);
+    });
+  });
+};
+
+const showHome = async (): Promise<void> => {
+  document.documentElement.classList.add("home-mode");
+  document.title = "Truyện Phàm Nhân Tu Tiên";
+  try {
+    toc = await loadToc();
+    buildPartIndex();
+    seedLastByPart();
+    bindHomeCards();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 const init = async (): Promise<void> => {
+  const pathCh = chapterFromPath();
+  if (!pathCh) {
+    const urlCh = parseInt(new URLSearchParams(location.search).get("ch") ?? "", 10);
+    if (urlCh) {
+      location.replace(chapterUrl(urlCh));
+      return;
+    }
+    await showHome();
+    return;
+  }
+
+  document.documentElement.classList.remove("home-mode");
+
   try {
     toc = await loadToc();
     buildPartIndex();
     renderPartPicker();
     migrateOldScrollKeys();
+    seedLastByPart();
 
-    const urlCh = parseInt(new URLSearchParams(location.search).get("ch") ?? "", 10);
-    const savedCh = parseInt(localStorage.getItem(STORAGE_KEYS.lastChapter) ?? "", 10);
-    const startCh = Math.min(Math.max(urlCh || savedCh || 1, 1), toc.length);
+    const startCh = Math.min(Math.max(pathCh, 1), toc.length);
+    if (startCh !== pathCh) {
+      location.replace(chapterUrl(startCh));
+      return;
+    }
     await loadChapter(startCh);
   } catch (err) {
     el.title.textContent = "Lỗi tải danh sách chương";

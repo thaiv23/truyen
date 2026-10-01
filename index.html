@@ -12,6 +12,9 @@
                 if (localStorage.getItem('personal-theme') === 'dark') {
                     document.documentElement.classList.add('dark-mode');
                 }
+                if (!/\/\d+\.html$/.test(location.pathname)) {
+                    document.documentElement.classList.add('home-mode');
+                }
                 var lh = { '17px': '1.6', '19px': '1.7', '22px': '1.8' };
                 var fs = localStorage.getItem('personal-reader-font-size');
                 if (fs === '26px' || fs === '30px') fs = '22px';
@@ -31,6 +34,11 @@
             --toolbar-bg: #ffffff;
             --border: rgba(0, 0, 0, 0.08);
             --hr: rgba(0, 0, 0, 0.1);
+            --accent: #1a9e72;
+            --accent-hover: #168a63;
+            --accent-deep: #147a58;
+            --accent-soft: rgba(26, 158, 114, 0.14);
+            --accent-glow: rgba(26, 158, 114, 0.22);
             color-scheme: light;
         }
 
@@ -64,7 +72,20 @@
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
             z-index: 1000;
             height: 56px;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+
+        html:not(.home-mode) #toolbar {
+            background: rgba(255, 255, 255, 0.68);
+            backdrop-filter: blur(24px) saturate(1.2);
+            -webkit-backdrop-filter: blur(24px) saturate(1.2);
+            border-bottom-color: rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+        }
+
+        html.dark-mode:not(.home-mode) #toolbar {
+            background: rgba(26, 26, 26, 0.68);
+            border-bottom-color: rgba(255, 255, 255, 0.08);
         }
 
         .brand {
@@ -89,35 +110,107 @@
             justify-content: center;
         }
 
-        .part-picker,
-        .chapter-picker,
-        .fs-picker {
-            border-radius: 6px;
+        .picker {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .picker-trigger {
+            border-radius: 10px;
             border: 1px solid #ccc;
             background-color: var(--toolbar-bg);
             color: var(--text-color);
             font-family: inherit;
             cursor: pointer;
             outline: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            text-align: left;
+            appearance: none;
+        }
+
+        .picker-trigger:focus-visible {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+
+        .picker-value {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .picker-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            z-index: 1200;
+            min-width: 100%;
+            max-height: min(360px, 60vh);
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding: 6px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--toolbar-bg);
+            color: var(--text-color);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+            box-sizing: border-box;
+        }
+
+        .picker-menu[hidden] {
+            display: none;
+        }
+
+        .picker-option {
+            display: block;
+            width: 100%;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            padding: 8px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .picker-option:hover,
+        .picker-option.is-active {
+            background: var(--accent-soft);
+        }
+
+        .picker-option.is-selected {
+            font-weight: 700;
+        }
+
+        .part-picker-wrap {
+            margin-right: 14px;
         }
 
         .part-picker {
             padding: 8px 10px;
             font-size: 14px;
             font-weight: bold;
-            margin-right: 14px;
+        }
+
+        .chapter-picker-wrap {
+            margin: 0 10px;
         }
 
         .chapter-picker {
             padding: 8px 12px;
             font-size: 14px;
             font-weight: bold;
-            margin: 0 10px;
             width: 220px;
             max-width: 32vw;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            white-space: nowrap;
+        }
+
+        .chapter-picker-wrap .picker-menu {
+            min-width: max(100%, 280px);
         }
 
         .control-group {
@@ -165,7 +258,7 @@
         }
 
         .btn {
-            background: #007acc;
+            background: var(--accent);
             color: white;
             padding: 8px 16px;
             border: none;
@@ -176,11 +269,11 @@
             display: inline-block;
             transition: background-color 0.2s ease, transform 0.2s ease;
             white-space: nowrap;
-            box-shadow: 0 2px 4px rgba(0, 122, 204, 0.2);
+            box-shadow: 0 2px 4px var(--accent-glow);
         }
 
         .btn:hover {
-            background: #0062a3;
+            background: var(--accent-hover);
             transform: translateY(-1px);
         }
 
@@ -207,6 +300,12 @@
             font-size: 13px;
             height: 32px;
             box-sizing: border-box;
+        }
+
+        .fs-picker-wrap .picker-menu {
+            right: 0;
+            left: auto;
+            min-width: 140px;
         }
 
         .theme-switch-wrapper {
@@ -259,8 +358,8 @@
         }
 
         input:checked+.slider {
-            background-color: #007acc;
-            border-color: #0062a3;
+            background-color: var(--accent);
+            border-color: var(--accent-deep);
         }
 
         input:checked+.slider:before {
@@ -268,8 +367,226 @@
         }
 
         html.dark-mode .slider {
-            background-color: #007acc;
-            border-color: #0062a3;
+            background-color: var(--accent);
+            border-color: var(--accent-deep);
+        }
+
+        html.home-mode .nav-group,
+        html.home-mode .control-group,
+        html.home-mode #reader-container {
+            display: none;
+        }
+
+        html:not(.home-mode) #home {
+            display: none;
+        }
+
+        html.home-mode body {
+            background-color: #0b1c2e;
+            color: #fff;
+        }
+
+        html.home-mode body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: url("./hinhanh/background.jpg");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            pointer-events: none;
+        }
+
+        html.home-mode #toolbar {
+            background: transparent;
+            border-bottom: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            height: 64px;
+        }
+
+        html.home-mode .brand img {
+            height: 54px;
+        }
+
+        #home {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 36px 20px 80px;
+        }
+
+        html.home-mode #home {
+            min-height: calc(100vh - 85px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        html.home-mode .book-card {
+            --glass-radius: 26px;
+            position: relative;
+            isolation: isolate;
+            overflow: visible;
+            padding: 11px 11px 0;
+            border: 0;
+            border-radius: var(--glass-radius);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 42%, rgba(255, 255, 255, 0.02) 100%);
+            backdrop-filter: blur(18px) saturate(1.25) brightness(1.04);
+            -webkit-backdrop-filter: blur(18px) saturate(1.25) brightness(1.04);
+            box-shadow:
+                0 1px 0 rgba(255, 255, 255, 0.45) inset,
+                0 -8px 18px rgba(255, 255, 255, 0.05) inset,
+                0 16px 40px rgba(8, 22, 40, 0.22),
+                0 2px 8px rgba(8, 22, 40, 0.12);
+            transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, backdrop-filter 0.25s ease;
+        }
+
+        html.home-mode .book-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            border-radius: inherit;
+            padding: 1.5px;
+            background: linear-gradient(
+                145deg,
+                rgba(255, 255, 255, 0.72) 0%,
+                rgba(255, 255, 255, 0.18) 24%,
+                rgba(255, 255, 255, 0.05) 48%,
+                rgba(255, 255, 255, 0.14) 76%,
+                rgba(255, 255, 255, 0.38) 100%
+            );
+            -webkit-mask:
+                linear-gradient(#000 0 0) content-box,
+                linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask:
+                linear-gradient(#000 0 0) content-box,
+                linear-gradient(#000 0 0);
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        html.home-mode .book-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            border-radius: inherit;
+            background:
+                radial-gradient(90% 55% at 18% -8%, rgba(255, 255, 255, 0.22), transparent 52%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 34%);
+            pointer-events: none;
+        }
+
+        html.home-mode .book-card:hover {
+            transform: translateY(-6px);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0.03) 100%);
+            backdrop-filter: blur(20px) saturate(1.32) brightness(1.08);
+            -webkit-backdrop-filter: blur(20px) saturate(1.32) brightness(1.08);
+            box-shadow:
+                0 1px 0 rgba(255, 255, 255, 0.58) inset,
+                0 -10px 22px rgba(255, 255, 255, 0.08) inset,
+                0 22px 48px rgba(8, 22, 40, 0.26),
+                0 4px 12px rgba(8, 22, 40, 0.14);
+        }
+
+        html.home-mode .book-cover {
+            position: relative;
+            z-index: 1;
+            border-radius: 16px;
+            background: rgba(8, 16, 28, 0.28);
+            box-shadow:
+                0 10px 24px rgba(0, 0, 0, 0.16),
+                0 0 0 1px rgba(255, 255, 255, 0.12);
+        }
+
+        html.home-mode .book-info {
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            color: #fff;
+            text-shadow: none;
+            padding: 14px 12px 16px;
+        }
+
+        html.home-mode .book-info h2 {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        html.home-mode .book-status {
+            color: rgba(255, 255, 255, 0.92);
+            opacity: 1;
+            font-weight: 600;
+        }
+
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 28px;
+        }
+
+        .book-card {
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            background: var(--toolbar-bg);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .book-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        .book-card:focus-visible {
+            outline: 3px solid var(--accent-glow);
+            outline-offset: 3px;
+        }
+
+        .book-cover {
+            aspect-ratio: 3 / 4;
+            overflow: hidden;
+            background: #111;
+        }
+
+        .book-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .book-info {
+            padding: 16px 16px 18px;
+            text-align: center;
+        }
+
+        .book-info h2 {
+            margin: 0 0 6px;
+            font-size: 1.08rem;
+            line-height: 1.35;
+            font-weight: 700;
+        }
+
+        .book-status {
+            margin: 0;
+            font-size: 13px;
+            opacity: 0.68;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .loading {
@@ -316,17 +633,52 @@
                 gap: 16px;
             }
 
+            .part-picker-wrap {
+                margin-right: 4px;
+            }
+
+            .chapter-picker-wrap {
+                margin: 0 4px;
+            }
+
             .chapter-picker {
                 width: 160px;
                 max-width: 45vw;
                 font-size: 13px;
-                margin: 0 4px;
                 padding: 6px 8px;
+            }
+
+            .chapter-picker-wrap .picker-menu {
+                min-width: 100%;
             }
 
             .btn {
                 padding: 6px 12px;
                 font-size: 13px;
+            }
+
+            .book-grid {
+                grid-template-columns: 1fr;
+                max-width: 360px;
+                margin: 0 auto;
+                gap: 22px;
+            }
+
+            html.home-mode #toolbar {
+                flex-direction: row;
+                height: 64px;
+                padding: 10px 20px;
+            }
+
+            html.home-mode .brand {
+                position: absolute;
+                left: 16px;
+                justify-content: flex-start;
+                width: auto;
+            }
+
+            html.home-mode #home {
+                min-height: calc(100vh - 85px);
             }
         }
 
@@ -334,7 +686,8 @@
             body,
             .btn,
             .slider,
-            .slider:before {
+            .slider:before,
+            .book-card {
                 transition: none;
             }
         }
@@ -347,9 +700,19 @@
             <img src="./hinhanh/logo.webp" alt="Phàm Nhân Tu Tiên" width="200" height="44" decoding="async">
         </a>
         <div class="nav-group">
-            <select class="part-picker" aria-label="Chọn phần"></select>
+            <div class="picker part-picker-wrap">
+                <button type="button" class="picker-trigger part-picker" aria-label="Chọn phần" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="picker-value"></span>
+                </button>
+                <div class="picker-menu" role="listbox" hidden></div>
+            </div>
             <button type="button" id="btn-prev" class="btn" aria-label="Chương trước">Trước</button>
-            <select class="chapter-picker" aria-label="Chọn chương"></select>
+            <div class="picker chapter-picker-wrap">
+                <button type="button" class="picker-trigger chapter-picker" aria-label="Chọn chương" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="picker-value"></span>
+                </button>
+                <div class="picker-menu" role="listbox" hidden></div>
+            </div>
             <button type="button" id="btn-next" class="btn" aria-label="Chương sau">Sau</button>
         </div>
         <div class="control-group">
@@ -361,13 +724,36 @@
                 </label>
                 <span>Dark</span>
             </div>
-            <select id="fs" class="fs-picker" aria-label="Cỡ chữ">
-                <option value="17px">Nhỏ</option>
-                <option value="19px" selected>Bình thường</option>
-                <option value="22px">Lớn</option>
-            </select>
+            <div class="picker fs-picker-wrap">
+                <button type="button" id="fs" class="picker-trigger fs-picker" aria-label="Cỡ chữ" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="picker-value"></span>
+                </button>
+                <div class="picker-menu" role="listbox" hidden></div>
+            </div>
         </div>
     </div>
+    <section id="home" aria-label="Trang chủ">
+        <div class="book-grid">
+            <a class="book-card" data-book="0" href="./1.html">
+                <div class="book-cover">
+                    <img src="./hinhanh/part1.jpg" alt="Phàm Nhân Tu Tiên" width="600" height="800" decoding="async" loading="lazy">
+                </div>
+                <div class="book-info">
+                    <h2>Phàm Nhân Tu Tiên</h2>
+                    <p class="book-status">Bắt đầu đọc</p>
+                </div>
+            </a>
+            <a class="book-card" data-book="1" href="./2466.html">
+                <div class="book-cover">
+                    <img src="./hinhanh/part2.webp" alt="Phàm Nhân Tu Tiên Chi Tiên Giới Thiên" width="600" height="800" decoding="async" loading="lazy">
+                </div>
+                <div class="book-info">
+                    <h2>Phàm Nhân Tu Tiên Chi Tiên Giới Thiên</h2>
+                    <p class="book-status">Bắt đầu đọc</p>
+                </div>
+            </a>
+        </div>
+    </section>
     <div id="reader-container">
         <article id="reader">
             <h1 id="chapter-title"></h1>
