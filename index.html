@@ -113,6 +113,11 @@
         .picker {
             position: relative;
             display: inline-flex;
+            flex-direction: column;
+        }
+
+        .picker.is-open {
+            z-index: 1300;
         }
 
         .picker-trigger {
@@ -143,14 +148,16 @@
         }
 
         .picker-menu {
-            position: absolute;
-            top: calc(100% + 6px);
+            position: fixed;
+            top: 0;
             left: 0;
-            z-index: 1200;
-            min-width: 100%;
+            z-index: 2000;
+            min-width: 0;
             max-height: min(360px, 60vh);
             overflow-x: hidden;
             overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
             padding: 6px;
             border: 1px solid var(--border);
             border-radius: 14px;
@@ -176,6 +183,8 @@
             padding: 8px 10px;
             cursor: pointer;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .picker-option:hover,
@@ -185,16 +194,6 @@
 
         .picker-option.is-selected {
             font-weight: 700;
-        }
-
-        .part-picker-wrap {
-            margin-right: 14px;
-        }
-
-        .part-picker {
-            padding: 8px 10px;
-            font-size: 14px;
-            font-weight: bold;
         }
 
         .chapter-picker-wrap {
@@ -209,8 +208,48 @@
             max-width: 32vw;
         }
 
-        .chapter-picker-wrap .picker-menu {
-            min-width: max(100%, 280px);
+        #picker-root {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            pointer-events: none;
+        }
+
+        #picker-root > * {
+            pointer-events: auto;
+        }
+
+        #picker-backdrop {
+            position: absolute;
+            inset: 0;
+            z-index: 1900;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: rgba(0, 0, 0, 0.45);
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        #picker-backdrop[hidden] {
+            display: none;
+        }
+
+        html.picker-open body {
+            overscroll-behavior: none;
+        }
+
+        .picker-menu.is-sheet {
+            padding: 8px;
+            border-radius: 16px;
+        }
+
+        .picker-menu.is-sheet .picker-option {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+            padding: 12px 14px;
+            line-height: 1.4;
         }
 
         .control-group {
@@ -303,8 +342,6 @@
         }
 
         .fs-picker-wrap .picker-menu {
-            right: 0;
-            left: auto;
             min-width: 140px;
         }
 
@@ -381,21 +418,32 @@
             display: none;
         }
 
-        html.home-mode body {
+        html.home-mode {
             background-color: #0b1c2e;
-            color: #fff;
         }
 
-        html.home-mode body::before {
+        html.home-mode::before {
             content: "";
             position: fixed;
-            inset: 0;
-            z-index: -1;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            z-index: 0;
             background-image: url("./hinhanh/background.jpg");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             pointer-events: none;
+            transform: translateZ(0);
+        }
+
+        html.home-mode body {
+            position: relative;
+            z-index: 1;
+            background-color: transparent;
+            color: #fff;
         }
 
         html.home-mode #toolbar {
@@ -633,23 +681,15 @@
                 gap: 16px;
             }
 
-            .part-picker-wrap {
-                margin-right: 4px;
-            }
-
             .chapter-picker-wrap {
                 margin: 0 4px;
             }
 
             .chapter-picker {
-                width: 160px;
-                max-width: 45vw;
+                width: 200px;
+                max-width: 52vw;
                 font-size: 13px;
                 padding: 6px 8px;
-            }
-
-            .chapter-picker-wrap .picker-menu {
-                min-width: 100%;
             }
 
             .btn {
@@ -664,21 +704,41 @@
                 gap: 22px;
             }
 
+            html.home-mode,
+            html.home-mode body {
+                height: 100%;
+                height: 100dvh;
+                overflow: hidden;
+            }
+
+            html.home-mode body {
+                display: flex;
+                flex-direction: column;
+            }
+
             html.home-mode #toolbar {
                 flex-direction: row;
+                flex-shrink: 0;
                 height: 64px;
                 padding: 10px 20px;
             }
 
             html.home-mode .brand {
-                position: absolute;
-                left: 16px;
-                justify-content: flex-start;
+                position: static;
+                left: auto;
+                justify-content: center;
                 width: auto;
             }
 
             html.home-mode #home {
-                min-height: calc(100vh - 85px);
+                flex: 1;
+                min-height: 0;
+                overflow-x: hidden;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+                justify-content: flex-start;
+                padding-top: 8px;
             }
         }
 
@@ -700,12 +760,6 @@
             <img src="./hinhanh/logo.webp" alt="Phàm Nhân Tu Tiên" width="200" height="44" decoding="async">
         </a>
         <div class="nav-group">
-            <div class="picker part-picker-wrap">
-                <button type="button" class="picker-trigger part-picker" aria-label="Chọn phần" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="picker-value"></span>
-                </button>
-                <div class="picker-menu" role="listbox" hidden></div>
-            </div>
             <button type="button" id="btn-prev" class="btn" aria-label="Chương trước">Trước</button>
             <div class="picker chapter-picker-wrap">
                 <button type="button" class="picker-trigger chapter-picker" aria-label="Chọn chương" aria-haspopup="listbox" aria-expanded="false">
@@ -765,6 +819,9 @@
             <button type="button" id="btn-prev-bottom" class="btn">Chương Trước</button>
             <button type="button" id="btn-next-bottom" class="btn">Chương Sau</button>
         </div>
+    </div>
+    <div id="picker-root">
+        <div id="picker-backdrop" hidden aria-label="Đóng danh sách"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
 </body>

@@ -47,7 +47,6 @@ const bindPicker = (wrapSelector: string, triggerSelector: string): Picker => {
 };
 
 const el = {
-  partPicker: bindPicker(".part-picker-wrap", ".part-picker"),
   chapterPicker: bindPicker(".chapter-picker-wrap", ".chapter-picker"),
   title: must<HTMLHeadingElement>("#chapter-title"),
   content: must<HTMLElement>("#chapter-content"),
@@ -61,17 +60,129 @@ const el = {
   bookCards: [...document.querySelectorAll<HTMLAnchorElement>(".book-card")],
 };
 
-const pickers = [el.partPicker, el.chapterPicker, el.fs];
+const pickers = [el.chapterPicker, el.fs];
+const pickerRoot = must<HTMLElement>("#picker-root");
+const pickerBackdrop = must<HTMLElement>("#picker-backdrop");
+const mobilePickerMq = window.matchMedia("(max-width: 768px)");
 
 const isPickerOpen = (picker: Picker): boolean => picker.trigger.getAttribute("aria-expanded") === "true";
 
+const usesSheet = (_picker: Picker): boolean => mobilePickerMq.matches;
+
+const clearMenuPos = (menu: HTMLElement): void => {
+  menu.style.top = "";
+  menu.style.left = "";
+  menu.style.width = "";
+  menu.style.minWidth = "";
+  menu.style.maxWidth = "";
+  menu.style.maxHeight = "";
+};
+
+const restoreMenu = (picker: Picker): void => {
+  if (picker.menu.parentElement !== picker.wrap) picker.wrap.appendChild(picker.menu);
+};
+
+const viewportBox = (): { top: number; left: number; bottom: number; width: number } => {
+  const vv = window.visualViewport;
+  if (!vv) return { top: 0, left: 0, bottom: window.innerHeight, width: window.innerWidth };
+  return { top: vv.offsetTop, left: vv.offsetLeft, bottom: vv.offsetTop + vv.height, width: vv.width };
+};
+
+const positionPickerMenu = (picker: Picker): void => {
+  const menu = picker.menu;
+  const triggerRect = picker.trigger.getBoundingClientRect();
+  const pad = 8;
+  const gap = 6;
+  const view = viewportBox();
+  const sheet = usesSheet(picker);
+  const minW = sheet ? view.width - pad * 2 : picker === el.chapterPicker ? 280 : picker === el.fs ? 140 : triggerRect.width;
+  const widthCap = Math.max(0, view.width - pad * 2);
+
+  clearMenuPos(menu);
+  menu.style.maxWidth = `${widthCap}px`;
+  menu.style.minWidth = `${Math.min(Math.max(triggerRect.width, minW), widthCap)}px`;
+  if (sheet) menu.style.width = `${widthCap}px`;
+
+  const spaceBelow = view.bottom - triggerRect.bottom - pad - gap;
+  const spaceAbove = triggerRect.top - view.top - pad - gap;
+  const placeBelow = spaceBelow >= Math.min(menu.offsetHeight, 140) || spaceBelow >= spaceAbove;
+  menu.style.maxHeight = `${Math.min(sheet ? 480 : 360, Math.max(120, placeBelow ? spaceBelow : spaceAbove))}px`;
+
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  let left = sheet ? view.left + pad : picker === el.fs ? triggerRect.right - width : triggerRect.left;
+  left = Math.min(Math.max(view.left + pad, left), Math.max(view.left + pad, view.left + view.width - pad - width));
+  let top = placeBelow ? triggerRect.bottom + gap : triggerRect.top - gap - height;
+  top = Math.min(Math.max(view.top + pad, top), Math.max(view.top + pad, view.bottom - pad - height));
+  menu.style.top = `${top}px`;
+  menu.style.left = `${left}px`;
+};
+
+const scrollSelectedIntoMenu = (picker: Picker): void => {
+  const selected = picker.menu.querySelector<HTMLElement>(".picker-option.is-selected");
+  if (!selected) return;
+  const top = selected.offsetTop - picker.menu.clientHeight / 2 + selected.offsetHeight / 2;
+  picker.menu.scrollTop = Math.max(0, top);
+};
+
+let pickerLockY = 0;
+
+const lockPageScroll = (locked: boolean): void => {
+  const root = document.documentElement;
+  if (locked) {
+    if (root.classList.contains("picker-open")) return;
+    pickerLockY = window.scrollY;
+    root.classList.add("picker-open");
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${pickerLockY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    return;
+  }
+  if (!root.classList.contains("picker-open")) return;
+  root.classList.remove("picker-open");
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  window.scrollTo(0, pickerLockY);
+};
+
 const closePicker = (picker: Picker): void => {
   picker.trigger.setAttribute("aria-expanded", "false");
+  picker.wrap.classList.remove("is-open");
   picker.menu.hidden = true;
+  picker.menu.classList.remove("is-sheet");
+  picker.menu.style.visibility = "";
+  clearMenuPos(picker.menu);
+  restoreMenu(picker);
+  if (!pickers.some(isPickerOpen)) {
+    pickerBackdrop.hidden = true;
+    lockPageScroll(false);
+  }
 };
 
 const closeAllPickers = (): void => {
   pickers.forEach(closePicker);
+};
+
+const positionBackdrop = (): void => {
+  const toolbar = document.getElementById("toolbar");
+  const bottom = toolbar?.getBoundingClientRect().bottom ?? 0;
+  pickerBackdrop.style.top = `${Math.max(0, bottom)}px`;
+};
+
+const layoutOpenPicker = (picker: Picker): void => {
+  const sheet = usesSheet(picker);
+  picker.menu.classList.toggle("is-sheet", sheet);
+  pickerBackdrop.hidden = !sheet;
+  lockPageScroll(sheet);
+  if (sheet) positionBackdrop();
+  else pickerBackdrop.style.top = "";
+  positionPickerMenu(picker);
+  scrollSelectedIntoMenu(picker);
 };
 
 const setPickerValue = (picker: Picker, value: string): void => {
@@ -106,9 +217,12 @@ const openPicker = (picker: Picker): void => {
     if (other !== picker) closePicker(other);
   });
   picker.trigger.setAttribute("aria-expanded", "true");
+  picker.wrap.classList.add("is-open");
+  pickerRoot.appendChild(picker.menu);
+  picker.menu.style.visibility = "hidden";
   picker.menu.hidden = false;
-  const selected = picker.menu.querySelector<HTMLElement>(".picker-option.is-selected");
-  selected?.scrollIntoView({ block: "nearest" });
+  layoutOpenPicker(picker);
+  picker.menu.style.visibility = "";
 };
 
 const bindPickerEvents = (picker: Picker): void => {
@@ -136,9 +250,24 @@ const bindPickerEvents = (picker: Picker): void => {
 pickers.forEach(bindPickerEvents);
 
 document.addEventListener("click", (e) => {
-  if (pickers.some((picker) => picker.wrap.contains(e.target as Node))) return;
+  const target = e.target as Node;
+  if (pickers.some((picker) => picker.wrap.contains(target) || picker.menu.contains(target))) return;
   closeAllPickers();
 });
+
+pickerBackdrop.addEventListener("click", () => {
+  closeAllPickers();
+});
+
+const relayoutOpenPicker = (): void => {
+  const open = pickers.find(isPickerOpen);
+  if (open) layoutOpenPicker(open);
+};
+
+window.addEventListener("resize", relayoutOpenPicker);
+window.visualViewport?.addEventListener("resize", relayoutOpenPicker);
+window.visualViewport?.addEventListener("scroll", relayoutOpenPicker);
+window.addEventListener("scroll", relayoutOpenPicker, { passive: true });
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -289,14 +418,6 @@ const buildPartIndex = (): void => {
   }, new Map<string, number[]>());
 };
 
-const renderPartPicker = (): void => {
-  renderPickerOptions(
-    el.partPicker,
-    [...partIndex.keys()].map((name) => ({ value: name, label: name })),
-    [...partIndex.keys()][0] ?? "",
-  );
-};
-
 const renderChapterPicker = (part: string, ch: number): void => {
   if (part !== currentPart) {
     currentPart = part;
@@ -345,7 +466,6 @@ const loadChapter = async (ch: number): Promise<void> => {
   const entry = toc[ch - 1];
   if (!entry) return;
 
-  setPickerValue(el.partPicker, entry.part);
   el.title.textContent = entry.title;
   document.title = entry.title;
 
@@ -409,10 +529,6 @@ const loadToc = async (): Promise<Chapter[]> => {
   return parseToc(data);
 };
 
-el.partPicker.onChange = (value) => {
-  const [firstCh = 1] = partIndex.get(value) ?? [];
-  goTo(firstCh);
-};
 el.chapterPicker.onChange = (value) => {
   goTo(parseInt(value, 10));
 };
@@ -511,7 +627,6 @@ const init = async (): Promise<void> => {
   try {
     toc = await loadToc();
     buildPartIndex();
-    renderPartPicker();
     migrateOldScrollKeys();
     seedLastByPart();
 
