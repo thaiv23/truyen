@@ -252,6 +252,34 @@
             line-height: 1.4;
         }
 
+        .picker-menu.is-virtual .picker-spacer {
+            position: relative;
+            width: 100%;
+        }
+
+        .picker-menu.is-virtual .picker-window {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+        }
+
+        .picker-menu.is-virtual .picker-option {
+            height: 44px;
+            box-sizing: border-box;
+            padding-top: 0;
+            padding-bottom: 0;
+            line-height: 44px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .picker-menu.is-virtual.is-sheet .picker-option {
+            height: 48px;
+            line-height: 48px;
+        }
+
         .control-group {
             position: absolute;
             right: 20px;

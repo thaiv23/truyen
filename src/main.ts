@@ -73,6 +73,7 @@ const clearMenuPos = (menu: HTMLElement): void => {
   menu.style.top = "";
   menu.style.left = "";
   menu.style.width = "";
+  menu.style.height = "";
   menu.style.minWidth = "";
   menu.style.maxWidth = "";
   menu.style.maxHeight = "";
@@ -104,15 +105,25 @@ const positionPickerMenu = (picker: Picker): void => {
         : triggerRect.width;
   const widthCap = Math.max(0, view.width - pad * 2);
 
+  const virtual = picker === el.chapterPicker;
   clearMenuPos(menu);
+  if (virtual) {
+    const cap = sheet ? 480 : 360;
+    menu.style.maxHeight = `${cap}px`;
+    menu.style.height = `${cap}px`;
+  }
   menu.style.maxWidth = `${widthCap}px`;
   menu.style.minWidth = `${Math.min(Math.max(triggerRect.width, minW), widthCap)}px`;
   if (sheet) menu.style.width = `${widthCap}px`;
 
   const spaceBelow = view.bottom - triggerRect.bottom - pad - gap;
   const spaceAbove = triggerRect.top - view.top - pad - gap;
-  const placeBelow = spaceBelow >= Math.min(menu.offsetHeight, 140) || spaceBelow >= spaceAbove;
-  menu.style.maxHeight = `${Math.min(sheet ? 480 : 360, Math.max(120, placeBelow ? spaceBelow : spaceAbove))}px`;
+  const placeBelow = virtual
+    ? spaceBelow >= 140 || spaceBelow >= spaceAbove
+    : spaceBelow >= Math.min(menu.offsetHeight, 140) || spaceBelow >= spaceAbove;
+  const maxH = Math.min(sheet ? 480 : 360, Math.max(120, placeBelow ? spaceBelow : spaceAbove));
+  menu.style.maxHeight = `${maxH}px`;
+  if (virtual) menu.style.height = `${maxH}px`;
 
   const width = menu.offsetWidth;
   const height = menu.offsetHeight;
@@ -124,7 +135,75 @@ const positionPickerMenu = (picker: Picker): void => {
   menu.style.left = `${left}px`;
 };
 
+const CHAPTER_ROW = 44;
+const CHAPTER_ROW_SHEET = 48;
+const CHAPTER_OVERSCAN = 8;
+let chapterWindowKey = "";
+
+const chapterRowHeight = (picker: Picker): number => (usesSheet(picker) ? CHAPTER_ROW_SHEET : CHAPTER_ROW);
+
+const renderChapterWindow = (): void => {
+  const picker = el.chapterPicker;
+  const menu = picker.menu;
+  const options = picker.options;
+  const row = chapterRowHeight(picker);
+  const view = menu.clientHeight || (usesSheet(picker) ? 480 : 360);
+  const start = Math.max(0, Math.floor(menu.scrollTop / row) - CHAPTER_OVERSCAN);
+  const end = Math.min(options.length, Math.ceil((menu.scrollTop + view) / row) + CHAPTER_OVERSCAN);
+  const key = `${start}:${end}:${picker.value}:${row}`;
+
+  let spacer = menu.querySelector<HTMLElement>(":scope > .picker-spacer");
+  let windowEl = spacer?.querySelector<HTMLElement>(":scope > .picker-window");
+  if (!spacer || !windowEl) {
+    spacer = document.createElement("div");
+    spacer.className = "picker-spacer";
+    windowEl = document.createElement("div");
+    windowEl.className = "picker-window";
+    spacer.appendChild(windowEl);
+    menu.replaceChildren(spacer);
+  }
+  spacer.style.height = `${options.length * row}px`;
+  windowEl.style.transform = `translateY(${start * row}px)`;
+  if (key === chapterWindowKey) return;
+  chapterWindowKey = key;
+
+  const frag = document.createDocumentFragment();
+  for (let i = start; i < end; i++) {
+    const opt = options[i];
+    if (!opt) continue;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-option";
+    btn.role = "option";
+    btn.dataset.value = opt.value;
+    btn.textContent = opt.label;
+    const selected = opt.value === picker.value;
+    btn.classList.toggle("is-selected", selected);
+    btn.setAttribute("aria-selected", selected ? "true" : "false");
+    frag.appendChild(btn);
+  }
+  windowEl.replaceChildren(frag);
+};
+
+const releaseChapterWindow = (): void => {
+  chapterWindowKey = "";
+  el.chapterPicker.menu.classList.remove("is-virtual");
+  el.chapterPicker.menu.replaceChildren();
+};
+
 const scrollSelectedIntoMenu = (picker: Picker): void => {
+  if (picker === el.chapterPicker) {
+    picker.menu.classList.add("is-virtual");
+    renderChapterWindow();
+    const row = chapterRowHeight(picker);
+    const index = picker.options.findIndex((opt) => opt.value === picker.value);
+    if (index >= 0) {
+      const top = index * row - picker.menu.clientHeight / 2 + row / 2;
+      picker.menu.scrollTop = Math.max(0, top);
+    }
+    renderChapterWindow();
+    return;
+  }
   const selected = picker.menu.querySelector<HTMLElement>(".picker-option.is-selected");
   if (!selected) return;
   const top = selected.offsetTop - picker.menu.clientHeight / 2 + selected.offsetHeight / 2;
@@ -157,6 +236,7 @@ const lockPageScroll = (locked: boolean): void => {
 };
 
 const closePicker = (picker: Picker): void => {
+  if (!isPickerOpen(picker)) return;
   picker.trigger.setAttribute("aria-expanded", "false");
   picker.wrap.classList.remove("is-open");
   picker.menu.hidden = true;
@@ -164,6 +244,7 @@ const closePicker = (picker: Picker): void => {
   picker.menu.style.visibility = "";
   clearMenuPos(picker.menu);
   restoreMenu(picker);
+  if (picker === el.chapterPicker) releaseChapterWindow();
   if (!pickers.some(isPickerOpen)) {
     pickerBackdrop.hidden = true;
     lockPageScroll(false);
@@ -251,6 +332,15 @@ const bindPickerEvents = (picker: Picker): void => {
     picker.menu.querySelectorAll(".picker-option.is-active").forEach((node) => node.classList.remove("is-active"));
     btn.classList.add("is-active");
   });
+  if (picker === el.chapterPicker) {
+    picker.menu.addEventListener(
+      "scroll",
+      () => {
+        if (isPickerOpen(picker)) renderChapterWindow();
+      },
+      { passive: true },
+    );
+  }
 };
 
 pickers.forEach(bindPickerEvents);
@@ -425,22 +515,21 @@ const buildPartIndex = (): void => {
 };
 
 const renderChapterPicker = (part: string, ch: number): void => {
+  const value = String(ch);
   if (part !== currentPart) {
     currentPart = part;
-    renderPickerOptions(
-      el.chapterPicker,
-      (partIndex.get(part) ?? []).map((idx) => ({
-        value: String(idx),
-        label: toc[idx - 1]?.title ?? "",
-      })),
-      String(ch),
-    );
-    return;
+    el.chapterPicker.options = (partIndex.get(part) ?? []).map((idx) => ({
+      value: String(idx),
+      label: toc[idx - 1]?.title ?? "",
+    }));
+    chapterWindowKey = "";
   }
-  setPickerValue(el.chapterPicker, String(ch));
+  setPickerValue(el.chapterPicker, value);
+  if (isPickerOpen(el.chapterPicker)) renderChapterWindow();
 };
 
 const restoreScrollPosition = (ch: number): void => {
+  if (document.visibilityState === "hidden") return;
   const saved = readScrollMap()[String(ch)];
   const y = saved ? Number(saved) : 0;
   requestAnimationFrame(() => {
@@ -454,8 +543,13 @@ const assetUrl = (path: string): string => {
 };
 
 const prefetchChapter = (ch: number): void => {
-  if (ch < 1 || ch > toc.length) return;
-  void fetch(assetUrl(`chapters/${ch}.txt`), { cache: "force-cache" }).catch(() => undefined);
+  if (ch < 1 || ch > toc.length || document.visibilityState === "hidden") return;
+  const run = (): void => {
+    if (document.visibilityState === "hidden") return;
+    void fetch(assetUrl(`chapters/${ch}.txt`), { cache: "force-cache" }).catch(() => undefined);
+  };
+  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, { timeout: 2500 });
+  else window.setTimeout(run, 1200);
 };
 
 const fetchChapterText = async (ch: number): Promise<string> => {
@@ -550,11 +644,22 @@ el.btnNextBottom.addEventListener("click", goNext);
 window.addEventListener(
   "scroll",
   () => {
+    if (document.visibilityState === "hidden") return;
     if (scrollSaveTimer) clearTimeout(scrollSaveTimer);
     scrollSaveTimer = setTimeout(saveScrollNow, 150);
   },
   { passive: true },
 );
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "hidden") return;
+  if (scrollSaveTimer) {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = null;
+  }
+  saveScrollNow();
+  if (pickers.some(isPickerOpen)) closeAllPickers();
+});
 
 window.addEventListener("pagehide", saveScrollNow);
 
