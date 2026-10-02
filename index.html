@@ -109,174 +109,24 @@
             justify-content: center;
         }
 
-        .picker {
-            position: relative;
-            display: inline-flex;
-            flex-direction: column;
-        }
-
-        .picker.is-open {
-            z-index: 1300;
-        }
-
-        .picker-trigger {
-            border-radius: 10px;
+        .chapter-picker,
+        .fs-picker {
+            border-radius: 6px;
             border: 1px solid #ccc;
             background-color: var(--toolbar-bg);
             color: var(--text-color);
             font-family: inherit;
             cursor: pointer;
             outline: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            text-align: left;
-            appearance: none;
-        }
-
-        .picker-trigger:focus-visible {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-soft);
-        }
-
-        .picker-value {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .picker-menu {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 2000;
-            min-width: 0;
-            max-height: min(360px, 60vh);
-            overflow-x: hidden;
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            -webkit-overflow-scrolling: touch;
-            padding: 6px;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            background: var(--toolbar-bg);
-            color: var(--text-color);
-            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
-            box-sizing: border-box;
-        }
-
-        .picker-menu[hidden] {
-            display: none;
-        }
-
-        .picker-option {
-            display: block;
-            width: 100%;
-            border: 0;
-            border-radius: 10px;
-            background: transparent;
-            color: inherit;
-            font: inherit;
-            text-align: left;
-            padding: 8px 10px;
-            cursor: pointer;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .picker-option:hover,
-        .picker-option.is-active {
-            background: var(--accent-soft);
-        }
-
-        .picker-option.is-selected {
-            font-weight: 700;
-        }
-
-        .chapter-picker-wrap {
-            margin: 0 10px;
         }
 
         .chapter-picker {
             padding: 8px 12px;
             font-size: 14px;
             font-weight: bold;
+            margin: 0 10px;
             width: 220px;
             max-width: 32vw;
-        }
-
-        #picker-root {
-            position: fixed;
-            inset: 0;
-            z-index: 3000;
-            pointer-events: none;
-        }
-
-        #picker-root > * {
-            pointer-events: auto;
-        }
-
-        #picker-backdrop {
-            position: absolute;
-            inset: 0;
-            z-index: 1900;
-            margin: 0;
-            padding: 0;
-            border: 0;
-            background: rgba(0, 0, 0, 0.45);
-            cursor: pointer;
-            touch-action: none;
-        }
-
-        #picker-backdrop[hidden] {
-            display: none;
-        }
-
-        html.picker-open body {
-            overscroll-behavior: none;
-        }
-
-        .picker-menu.is-sheet {
-            padding: 8px;
-            border-radius: 16px;
-        }
-
-        .picker-menu.is-sheet .picker-option {
-            white-space: normal;
-            overflow: visible;
-            text-overflow: unset;
-            padding: 12px 14px;
-            line-height: 1.4;
-        }
-
-        .picker-menu.is-virtual .picker-spacer {
-            position: relative;
-            width: 100%;
-        }
-
-        .picker-menu.is-virtual .picker-window {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 0;
-        }
-
-        .picker-menu.is-virtual .picker-option {
-            height: 44px;
-            box-sizing: border-box;
-            padding-top: 0;
-            padding-bottom: 0;
-            line-height: 44px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .picker-menu.is-virtual.is-sheet .picker-option {
-            height: 48px;
-            line-height: 48px;
         }
 
         .control-group {
@@ -367,22 +217,6 @@
             height: 28px;
             min-width: 7.5em;
             box-sizing: border-box;
-        }
-
-        .fs-picker-wrap .picker-menu {
-            min-width: 0;
-            width: max-content;
-            max-width: 148px;
-            padding: 4px;
-            border-radius: 10px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
-        }
-
-        .fs-picker-wrap .picker-option {
-            padding: 6px 10px;
-            font-size: 13px;
-            line-height: 1.25;
-            border-radius: 8px;
         }
 
         .theme-switch-wrapper {
@@ -735,10 +569,6 @@
                 gap: 16px;
             }
 
-            .chapter-picker-wrap {
-                margin: 0 4px;
-            }
-
             .chapter-picker {
                 width: 200px;
                 max-width: 52vw;
@@ -819,12 +649,7 @@
         </a>
         <div class="nav-group">
             <button type="button" id="btn-prev" class="btn" aria-label="Chương trước">Trước</button>
-            <div class="picker chapter-picker-wrap">
-                <button type="button" class="picker-trigger chapter-picker" aria-label="Chọn chương" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="picker-value"></span>
-                </button>
-                <div class="picker-menu" role="listbox" hidden></div>
-            </div>
+            <select class="chapter-picker" aria-label="Chọn chương"></select>
             <button type="button" id="btn-next" class="btn" aria-label="Chương sau">Sau</button>
         </div>
         <div class="control-group">
@@ -836,12 +661,11 @@
                 </label>
                 <span>Dark</span>
             </div>
-            <div class="picker fs-picker-wrap">
-                <button type="button" id="fs" class="picker-trigger fs-picker" aria-label="Cỡ chữ" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="picker-value"></span>
-                </button>
-                <div class="picker-menu" role="listbox" hidden></div>
-            </div>
+            <select id="fs" class="fs-picker" aria-label="Cỡ chữ">
+                <option value="17px">Nhỏ</option>
+                <option value="19px" selected>Bình thường</option>
+                <option value="22px">Lớn</option>
+            </select>
         </div>
     </nav>
     <section id="home" aria-label="Trang chủ">
@@ -878,16 +702,12 @@
             <button type="button" id="btn-next-bottom" class="btn">Chương Sau</button>
         </nav>
     </main>
-    <div id="picker-root">
-        <div id="picker-backdrop" hidden aria-label="Đóng danh sách"></div>
-    </div>
     <script>
         (function () {
             try {
-                var labels = { "17px": "Nhỏ", "19px": "Bình thường", "22px": "Lớn" };
                 var fs = getComputedStyle(document.documentElement).getPropertyValue("--font-size").trim();
-                var fontLabel = document.querySelector("#fs .picker-value");
-                if (fontLabel) fontLabel.textContent = labels[fs] || "Bình thường";
+                var font = document.getElementById("fs");
+                if (font && (fs === "17px" || fs === "19px" || fs === "22px")) font.value = fs;
                 if (document.documentElement.classList.contains("dark-mode")) {
                     var theme = document.getElementById("theme-checkbox");
                     if (theme) theme.checked = true;

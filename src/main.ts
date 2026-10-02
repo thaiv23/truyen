@@ -26,28 +26,8 @@ function must<T extends Element>(selector: string): T {
   return node as T;
 }
 
-type PickerOption = { value: string; label: string };
-
-type Picker = {
-  wrap: HTMLElement;
-  trigger: HTMLButtonElement;
-  valueEl: HTMLElement;
-  menu: HTMLElement;
-  options: PickerOption[];
-  value: string;
-  onChange: ((value: string) => void) | null;
-};
-
-const bindPicker = (wrapSelector: string, triggerSelector: string): Picker => {
-  const wrap = must<HTMLElement>(wrapSelector);
-  const trigger = must<HTMLButtonElement>(triggerSelector);
-  const valueEl = must<HTMLElement>(`${wrapSelector} .picker-value`);
-  const menu = must<HTMLElement>(`${wrapSelector} .picker-menu`);
-  return { wrap, trigger, valueEl, menu, options: [], value: "", onChange: null };
-};
-
 const el = {
-  chapterPicker: bindPicker(".chapter-picker-wrap", ".chapter-picker"),
+  chapterPicker: must<HTMLSelectElement>(".chapter-picker"),
   title: must<HTMLHeadingElement>("#chapter-title"),
   content: must<HTMLElement>("#chapter-content"),
   reader: must<HTMLElement>("#reader"),
@@ -55,349 +35,16 @@ const el = {
   btnNext: must<HTMLButtonElement>("#btn-next"),
   btnPrevBottom: must<HTMLButtonElement>("#btn-prev-bottom"),
   btnNextBottom: must<HTMLButtonElement>("#btn-next-bottom"),
-  fs: bindPicker(".fs-picker-wrap", "#fs"),
+  fs: must<HTMLSelectElement>("#fs"),
   themeCheckbox: must<HTMLInputElement>("#theme-checkbox"),
   bookCards: [...document.querySelectorAll<HTMLAnchorElement>(".book-card")],
 };
-
-const pickers = [el.chapterPicker, el.fs];
-const pickerRoot = must<HTMLElement>("#picker-root");
-const pickerBackdrop = must<HTMLElement>("#picker-backdrop");
-const mobilePickerMq = window.matchMedia("(max-width: 768px)");
-
-const isPickerOpen = (picker: Picker): boolean => picker.trigger.getAttribute("aria-expanded") === "true";
-
-const usesSheet = (picker: Picker): boolean => mobilePickerMq.matches && picker === el.chapterPicker;
-
-const clearMenuPos = (menu: HTMLElement): void => {
-  menu.style.top = "";
-  menu.style.left = "";
-  menu.style.width = "";
-  menu.style.height = "";
-  menu.style.minWidth = "";
-  menu.style.maxWidth = "";
-  menu.style.maxHeight = "";
-};
-
-const restoreMenu = (picker: Picker): void => {
-  if (picker.menu.parentElement !== picker.wrap) picker.wrap.appendChild(picker.menu);
-};
-
-const viewportBox = (): { top: number; left: number; bottom: number; width: number } => {
-  const vv = window.visualViewport;
-  if (!vv) return { top: 0, left: 0, bottom: window.innerHeight, width: window.innerWidth };
-  return { top: vv.offsetTop, left: vv.offsetLeft, bottom: vv.offsetTop + vv.height, width: vv.width };
-};
-
-const positionPickerMenu = (picker: Picker): void => {
-  const menu = picker.menu;
-  const triggerRect = picker.trigger.getBoundingClientRect();
-  const pad = 8;
-  const gap = 6;
-  const view = viewportBox();
-  const sheet = usesSheet(picker);
-  const minW = sheet
-    ? view.width - pad * 2
-    : picker === el.chapterPicker
-      ? 280
-      : picker === el.fs
-        ? Math.max(triggerRect.width, 108)
-        : triggerRect.width;
-  const widthCap = Math.max(0, view.width - pad * 2);
-
-  const virtual = picker === el.chapterPicker;
-  clearMenuPos(menu);
-  if (virtual) {
-    const cap = sheet ? 480 : 360;
-    menu.style.maxHeight = `${cap}px`;
-    menu.style.height = `${cap}px`;
-  }
-  menu.style.maxWidth = `${widthCap}px`;
-  menu.style.minWidth = `${Math.min(Math.max(triggerRect.width, minW), widthCap)}px`;
-  if (sheet) menu.style.width = `${widthCap}px`;
-
-  const spaceBelow = view.bottom - triggerRect.bottom - pad - gap;
-  const spaceAbove = triggerRect.top - view.top - pad - gap;
-  const placeBelow = virtual
-    ? spaceBelow >= 140 || spaceBelow >= spaceAbove
-    : spaceBelow >= Math.min(menu.offsetHeight, 140) || spaceBelow >= spaceAbove;
-  const maxH = Math.min(sheet ? 480 : 360, Math.max(120, placeBelow ? spaceBelow : spaceAbove));
-  menu.style.maxHeight = `${maxH}px`;
-  if (virtual) menu.style.height = `${maxH}px`;
-
-  const width = menu.offsetWidth;
-  const height = menu.offsetHeight;
-  let left = sheet ? view.left + pad : picker === el.fs ? triggerRect.right - width : triggerRect.left;
-  left = Math.min(Math.max(view.left + pad, left), Math.max(view.left + pad, view.left + view.width - pad - width));
-  let top = placeBelow ? triggerRect.bottom + gap : triggerRect.top - gap - height;
-  top = Math.min(Math.max(view.top + pad, top), Math.max(view.top + pad, view.bottom - pad - height));
-  menu.style.top = `${top}px`;
-  menu.style.left = `${left}px`;
-};
-
-const CHAPTER_ROW = 44;
-const CHAPTER_ROW_SHEET = 48;
-const CHAPTER_OVERSCAN = 8;
-let chapterWindowKey = "";
-
-const chapterRowHeight = (picker: Picker): number => (usesSheet(picker) ? CHAPTER_ROW_SHEET : CHAPTER_ROW);
-
-const renderChapterWindow = (): void => {
-  const picker = el.chapterPicker;
-  const menu = picker.menu;
-  const options = picker.options;
-  const row = chapterRowHeight(picker);
-  const view = menu.clientHeight || (usesSheet(picker) ? 480 : 360);
-  const start = Math.max(0, Math.floor(menu.scrollTop / row) - CHAPTER_OVERSCAN);
-  const end = Math.min(options.length, Math.ceil((menu.scrollTop + view) / row) + CHAPTER_OVERSCAN);
-  const key = `${start}:${end}:${picker.value}:${row}`;
-
-  let spacer = menu.querySelector<HTMLElement>(":scope > .picker-spacer");
-  let windowEl = spacer?.querySelector<HTMLElement>(":scope > .picker-window");
-  if (!spacer || !windowEl) {
-    spacer = document.createElement("div");
-    spacer.className = "picker-spacer";
-    windowEl = document.createElement("div");
-    windowEl.className = "picker-window";
-    spacer.appendChild(windowEl);
-    menu.replaceChildren(spacer);
-  }
-  spacer.style.height = `${options.length * row}px`;
-  windowEl.style.transform = `translateY(${start * row}px)`;
-  if (key === chapterWindowKey) return;
-  chapterWindowKey = key;
-
-  const frag = document.createDocumentFragment();
-  for (let i = start; i < end; i++) {
-    const opt = options[i];
-    if (!opt) continue;
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "picker-option";
-    btn.role = "option";
-    btn.dataset.value = opt.value;
-    btn.textContent = opt.label;
-    const selected = opt.value === picker.value;
-    btn.classList.toggle("is-selected", selected);
-    btn.setAttribute("aria-selected", selected ? "true" : "false");
-    frag.appendChild(btn);
-  }
-  windowEl.replaceChildren(frag);
-};
-
-const releaseChapterWindow = (): void => {
-  chapterWindowKey = "";
-  el.chapterPicker.menu.classList.remove("is-virtual");
-  el.chapterPicker.menu.replaceChildren();
-};
-
-const scrollSelectedIntoMenu = (picker: Picker): void => {
-  if (picker === el.chapterPicker) {
-    picker.menu.classList.add("is-virtual");
-    renderChapterWindow();
-    const row = chapterRowHeight(picker);
-    const index = picker.options.findIndex((opt) => opt.value === picker.value);
-    if (index >= 0) {
-      const top = index * row - picker.menu.clientHeight / 2 + row / 2;
-      picker.menu.scrollTop = Math.max(0, top);
-    }
-    renderChapterWindow();
-    return;
-  }
-  const selected = picker.menu.querySelector<HTMLElement>(".picker-option.is-selected");
-  if (!selected) return;
-  const top = selected.offsetTop - picker.menu.clientHeight / 2 + selected.offsetHeight / 2;
-  picker.menu.scrollTop = Math.max(0, top);
-};
-
-let pickerLockY = 0;
-
-const lockPageScroll = (locked: boolean): void => {
-  const root = document.documentElement;
-  if (locked) {
-    if (root.classList.contains("picker-open")) return;
-    pickerLockY = window.scrollY;
-    root.classList.add("picker-open");
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${pickerLockY}px`;
-    document.body.style.left = "0";
-    document.body.style.right = "0";
-    document.body.style.width = "100%";
-    return;
-  }
-  if (!root.classList.contains("picker-open")) return;
-  root.classList.remove("picker-open");
-  document.body.style.position = "";
-  document.body.style.top = "";
-  document.body.style.left = "";
-  document.body.style.right = "";
-  document.body.style.width = "";
-  window.scrollTo(0, pickerLockY);
-};
-
-const closePicker = (picker: Picker): void => {
-  if (!isPickerOpen(picker)) return;
-  picker.trigger.setAttribute("aria-expanded", "false");
-  picker.wrap.classList.remove("is-open");
-  picker.menu.hidden = true;
-  picker.menu.classList.remove("is-sheet");
-  picker.menu.style.visibility = "";
-  clearMenuPos(picker.menu);
-  restoreMenu(picker);
-  if (picker === el.chapterPicker) releaseChapterWindow();
-  if (!pickers.some(isPickerOpen)) {
-    pickerBackdrop.hidden = true;
-    lockPageScroll(false);
-    unbindPickerViewport();
-  }
-};
-
-const closeAllPickers = (): void => {
-  pickers.forEach(closePicker);
-};
-
-const positionBackdrop = (): void => {
-  const toolbar = document.getElementById("toolbar");
-  const bottom = toolbar?.getBoundingClientRect().bottom ?? 0;
-  pickerBackdrop.style.top = `${Math.max(0, bottom)}px`;
-};
-
-const layoutOpenPicker = (picker: Picker): void => {
-  const sheet = usesSheet(picker);
-  picker.menu.classList.toggle("is-sheet", sheet);
-  pickerBackdrop.hidden = !sheet;
-  lockPageScroll(sheet);
-  if (sheet) positionBackdrop();
-  else pickerBackdrop.style.top = "";
-  positionPickerMenu(picker);
-  scrollSelectedIntoMenu(picker);
-};
-
-const setPickerValue = (picker: Picker, value: string): void => {
-  picker.value = value;
-  const match = picker.options.find((opt) => opt.value === value);
-  const label = match?.label ?? value;
-  if (picker.valueEl.textContent !== label) picker.valueEl.textContent = label;
-  picker.menu.querySelectorAll<HTMLButtonElement>(".picker-option").forEach((btn) => {
-    const selected = btn.dataset.value === value;
-    btn.classList.toggle("is-selected", selected);
-    btn.setAttribute("aria-selected", selected ? "true" : "false");
-  });
-};
-
-const renderPickerOptions = (picker: Picker, options: PickerOption[], selected: string): void => {
-  picker.options = options;
-  const frag = document.createDocumentFragment();
-  for (const opt of options) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "picker-option";
-    btn.role = "option";
-    btn.dataset.value = opt.value;
-    btn.textContent = opt.label;
-    frag.appendChild(btn);
-  }
-  picker.menu.replaceChildren(frag);
-  setPickerValue(picker, selected);
-};
-
-const openPicker = (picker: Picker): void => {
-  if (picker !== el.chapterPicker && picker.menu.childElementCount === 0 && picker.options.length) {
-    renderPickerOptions(picker, picker.options, picker.value);
-  }
-  pickers.forEach((other) => {
-    if (other !== picker) closePicker(other);
-  });
-  picker.trigger.setAttribute("aria-expanded", "true");
-  picker.wrap.classList.add("is-open");
-  pickerRoot.appendChild(picker.menu);
-  picker.menu.style.visibility = "hidden";
-  picker.menu.hidden = false;
-  layoutOpenPicker(picker);
-  picker.menu.style.visibility = "";
-  bindPickerViewport();
-};
-
-const bindPickerEvents = (picker: Picker): void => {
-  picker.trigger.addEventListener("click", () => {
-    if (isPickerOpen(picker)) closePicker(picker);
-    else openPicker(picker);
-  });
-  picker.menu.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".picker-option");
-    if (!btn?.dataset.value) return;
-    const value = btn.dataset.value;
-    closePicker(picker);
-    if (value === picker.value) return;
-    setPickerValue(picker, value);
-    picker.onChange?.(value);
-  });
-  picker.menu.addEventListener("mouseover", (e) => {
-    const btn = (e.target as HTMLElement).closest(".picker-option");
-    if (!btn) return;
-    picker.menu.querySelectorAll(".picker-option.is-active").forEach((node) => node.classList.remove("is-active"));
-    btn.classList.add("is-active");
-  });
-  if (picker === el.chapterPicker) {
-    picker.menu.addEventListener(
-      "scroll",
-      () => {
-        if (isPickerOpen(picker)) renderChapterWindow();
-      },
-      { passive: true },
-    );
-  }
-};
-
-pickers.forEach(bindPickerEvents);
-
-document.addEventListener("click", (e) => {
-  const target = e.target as Node;
-  if (pickers.some((picker) => picker.wrap.contains(target) || picker.menu.contains(target))) return;
-  closeAllPickers();
-});
-
-pickerBackdrop.addEventListener("click", () => {
-  closeAllPickers();
-});
-
-let pickerViewportBound = false;
-
-const onPickerViewport = (): void => {
-  if (document.visibilityState === "hidden") return;
-  const open = pickers.find(isPickerOpen);
-  if (open) layoutOpenPicker(open);
-};
-
-const bindPickerViewport = (): void => {
-  if (pickerViewportBound) return;
-  pickerViewportBound = true;
-  window.addEventListener("resize", onPickerViewport);
-  window.addEventListener("scroll", onPickerViewport, { passive: true });
-  window.visualViewport?.addEventListener("resize", onPickerViewport);
-  window.visualViewport?.addEventListener("scroll", onPickerViewport);
-};
-
-const unbindPickerViewport = (): void => {
-  if (!pickerViewportBound) return;
-  pickerViewportBound = false;
-  window.removeEventListener("resize", onPickerViewport);
-  window.removeEventListener("scroll", onPickerViewport);
-  window.visualViewport?.removeEventListener("resize", onPickerViewport);
-  window.visualViewport?.removeEventListener("scroll", onPickerViewport);
-};
-
-document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
-  if (!pickers.some(isPickerOpen)) return;
-  closeAllPickers();
-  e.preventDefault();
-});
 
 let toc: Chapter[] = [];
 let currentCh = 1;
 let currentPart: string | null = null;
 let partIndex = new Map<string, number[]>();
+let chapterListReady = false;
 
 const migrateOldScrollKeys = (): void => {
   if (localStorage.getItem(STORAGE_KEYS.scrollMap) != null) return;
@@ -514,10 +161,13 @@ const normalizeFontSize = (size: string | null): string => {
 
 const changeFontSize = (size: string): void => {
   const resolved = normalizeFontSize(size);
-  document.documentElement.style.setProperty("--font-size", resolved);
-  document.documentElement.style.setProperty("--line-height", FONT_PRESETS[resolved]!);
+  const root = document.documentElement;
+  if (root.style.getPropertyValue("--font-size") !== resolved) {
+    root.style.setProperty("--font-size", resolved);
+    root.style.setProperty("--line-height", FONT_PRESETS[resolved]!);
+  }
   localStorage.setItem(STORAGE_KEYS.fontSize, resolved);
-  setPickerValue(el.fs, resolved);
+  if (el.fs.value !== resolved) el.fs.value = resolved;
 };
 
 const toggleTheme = (): void => {
@@ -536,79 +186,24 @@ const buildPartIndex = (): void => {
 };
 
 const renderChapterPicker = (part: string, ch: number): void => {
-  const value = String(ch);
-  if (part !== currentPart) {
+  if (part !== currentPart || !chapterListReady) {
     currentPart = part;
-    el.chapterPicker.options = (partIndex.get(part) ?? []).map((idx) => ({
-      value: String(idx),
-      label: toc[idx - 1]?.title ?? "",
-    }));
-    chapterWindowKey = "";
+    const frag = document.createDocumentFragment();
+    for (const idx of partIndex.get(part) ?? []) {
+      const opt = document.createElement("option");
+      opt.value = String(idx);
+      opt.textContent = toc[idx - 1]?.title ?? "";
+      frag.appendChild(opt);
+    }
+    el.chapterPicker.replaceChildren(frag);
+    chapterListReady = true;
   }
-  setPickerValue(el.chapterPicker, value);
-  if (isPickerOpen(el.chapterPicker)) renderChapterWindow();
-};
-
-const restoreScrollPosition = (ch: number): void => {
-  if (document.visibilityState === "hidden") return;
-  const y = Number(readScrollMap()[String(ch)] ?? 0);
-  if (!Number.isFinite(y) || Math.abs(window.scrollY - y) < 2) return;
-  window.scrollTo(0, y);
+  el.chapterPicker.value = String(ch);
 };
 
 const assetUrl = (path: string): string => {
   const base = import.meta.env.BASE_URL;
   return `${base}${path.replace(/^\//, "")}`;
-};
-
-const prefetchChapter = (ch: number): void => {
-  if (ch < 1 || ch > toc.length || document.visibilityState === "hidden") return;
-  void fetch(assetUrl(`chapters/${ch}.txt`), { cache: "force-cache" }).catch(() => undefined);
-};
-
-const fetchChapterText = async (ch: number): Promise<string> => {
-  const res = await fetch(assetUrl(`chapters/${ch}.txt`), { cache: "force-cache" });
-  if (!res.ok) throw new Error(`Không tải được chương ${ch}`);
-  return res.text();
-};
-
-const loadChapter = async (ch: number): Promise<void> => {
-  if (ch < 1 || ch > toc.length || document.visibilityState === "hidden") return;
-  currentCh = ch;
-  rememberChapter(ch);
-
-  const entry = toc[ch - 1];
-  if (!entry) return;
-
-  const prerendered = el.reader.getAttribute("data-prerendered-ch") === String(ch);
-  if (prerendered) {
-    if (entry.part !== currentPart) {
-      currentPart = entry.part;
-      el.chapterPicker.options = (partIndex.get(entry.part) ?? []).map((idx) => ({
-        value: String(idx),
-        label: toc[idx - 1]?.title ?? "",
-      }));
-      chapterWindowKey = "";
-    }
-    el.chapterPicker.value = String(ch);
-    return;
-  }
-
-  if (el.title.textContent !== entry.title) el.title.textContent = entry.title;
-  if (document.title !== entry.title) document.title = entry.title;
-
-  el.btnPrev.disabled = el.btnPrevBottom.disabled = ch <= 1;
-  el.btnNext.disabled = el.btnNextBottom.disabled = ch >= toc.length;
-  renderChapterPicker(entry.part, ch);
-  el.content.innerHTML = '<p class="loading">Đang tải chương…</p>';
-
-  try {
-    el.content.innerHTML = await fetchChapterText(ch);
-    restoreScrollPosition(ch);
-  } catch (err) {
-    el.content.innerHTML = '<p class="error">Không tải được nội dung chương.</p>';
-    console.error(err);
-  }
 };
 
 const isChapter = (value: unknown): value is Chapter =>
@@ -650,54 +245,41 @@ const loadToc = async (): Promise<Chapter[]> => {
   return parseToc(data);
 };
 
-el.chapterPicker.onChange = (value) => {
-  goTo(parseInt(value, 10));
+const ensureChapterList = (): void => {
+  if (chapterListReady || !toc.length || !currentCh) return;
+  const entry = toc[currentCh - 1];
+  if (!entry) return;
+  renderChapterPicker(entry.part, currentCh);
 };
-el.fs.onChange = (value) => {
-  changeFontSize(value);
-};
+
+el.chapterPicker.addEventListener("pointerdown", ensureChapterList);
+el.chapterPicker.addEventListener("focus", ensureChapterList);
+el.chapterPicker.addEventListener("change", () => {
+  ensureChapterList();
+  goTo(parseInt(el.chapterPicker.value, 10));
+});
+el.fs.addEventListener("change", () => {
+  changeFontSize(el.fs.value);
+});
 el.themeCheckbox.addEventListener("change", toggleTheme);
 el.btnPrev.addEventListener("click", goPrev);
 el.btnNext.addEventListener("click", goNext);
 el.btnPrevBottom.addEventListener("click", goPrev);
 el.btnNextBottom.addEventListener("click", goNext);
-el.btnNext.addEventListener("pointerdown", () => prefetchChapter(currentCh + 1), { passive: true });
-el.btnNextBottom.addEventListener("pointerdown", () => prefetchChapter(currentCh + 1), { passive: true });
 
-let userMoved = false;
-window.addEventListener("pointerdown", () => {
-  userMoved = true;
-}, { passive: true });
-window.addEventListener("pointerup", () => {
-  if (!userMoved || document.visibilityState === "hidden") return;
-  userMoved = false;
-  saveScrollNow();
-}, { passive: true });
-window.addEventListener("pointercancel", () => {
-  userMoved = false;
-}, { passive: true });
+window.addEventListener("pagehide", saveScrollNow);
 
 document.addEventListener("keydown", (e) => {
   if (isHomeMode()) return;
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+  if (e.target instanceof HTMLSelectElement || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
     return;
   }
-  if (pickers.some(isPickerOpen)) return;
   if (e.key === "ArrowLeft") goPrev();
   if (e.key === "ArrowRight") goNext();
 });
 
-const FONT_OPTIONS: PickerOption[] = [
-  { value: "17px", label: "Nhỏ" },
-  { value: "19px", label: "Bình thường" },
-  { value: "22px", label: "Lớn" },
-];
 const savedSize = normalizeFontSize(localStorage.getItem(STORAGE_KEYS.fontSize));
-el.fs.options = FONT_OPTIONS;
-el.fs.value = savedSize;
-const savedFontLabel = FONT_OPTIONS.find((opt) => opt.value === savedSize)?.label ?? "Bình thường";
-if (el.fs.valueEl.textContent !== savedFontLabel) el.fs.valueEl.textContent = savedFontLabel;
-if (getComputedStyle(document.documentElement).getPropertyValue("--font-size").trim() !== savedSize) {
+if (document.documentElement.style.getPropertyValue("--font-size") !== savedSize || el.fs.value !== savedSize) {
   changeFontSize(savedSize);
 }
 
@@ -748,28 +330,23 @@ const init = async (): Promise<void> => {
     return;
   }
 
+  currentCh = pathCh;
   if (document.documentElement.classList.contains("home-mode")) {
     document.documentElement.classList.remove("home-mode");
   }
 
   try {
     toc = await loadToc();
-    if (document.visibilityState === "hidden") {
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") void init();
-      }, { once: true });
-      return;
-    }
     buildPartIndex();
     migrateOldScrollKeys();
     seedLastByPart();
-
     const startCh = Math.min(Math.max(pathCh, 1), toc.length);
     if (startCh !== pathCh) {
       location.replace(chapterUrl(startCh));
       return;
     }
-    await loadChapter(startCh);
+    currentCh = startCh;
+    rememberChapter(startCh);
   } catch (err) {
     el.title.textContent = "Lỗi tải danh sách chương";
     console.error(err);

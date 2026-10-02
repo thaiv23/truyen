@@ -37,7 +37,10 @@ function injectChapterHtml(html: string, ch: number, titles: string[]): string {
     .replace(/\s*<section id="home"[\s\S]*?<\/section>/, "")
     .replace('<article id="reader">', `<article id="reader" data-prerendered-ch="${ch}">`)
     .replace('<h1 id="chapter-title"></h1>', `<h1 id="chapter-title">${safeTitle}</h1>`)
-    .replace('<span class="picker-value"></span>', `<span class="picker-value">${safeTitle}</span>`)
+    .replace(
+      '<select class="chapter-picker" aria-label="Chọn chương"></select>',
+      `<select class="chapter-picker" aria-label="Chọn chương"><option value="${ch}">${safeTitle}</option></select>`,
+    )
     .replace('<div id="chapter-content"></div>', `<div id="chapter-content">${body}</div>`);
   if (ch <= 1) {
     page = page
