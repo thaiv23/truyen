@@ -76,16 +76,9 @@
         }
 
         html:not(.home-mode) #toolbar {
-            background: rgba(255, 255, 255, 0.68);
-            backdrop-filter: blur(24px) saturate(1.2);
-            -webkit-backdrop-filter: blur(24px) saturate(1.2);
-            border-bottom-color: rgba(0, 0, 0, 0.06);
-            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
-        }
-
-        html.dark-mode:not(.home-mode) #toolbar {
-            background: rgba(26, 26, 26, 0.68);
-            border-bottom-color: rgba(255, 255, 255, 0.08);
+            background: var(--toolbar-bg);
+            border-bottom-color: var(--border);
+            box-shadow: none;
         }
 
         .brand {
@@ -814,7 +807,7 @@
 </head>
 
 <body>
-    <div id="toolbar">
+    <nav id="toolbar">
         <a class="brand" href="./" aria-label="Truyện Phàm Nhân Tu Tiên">
             <img src="./hinhanh/logo.webp" alt="Phàm Nhân Tu Tiên" width="200" height="44" decoding="async">
         </a>
@@ -844,7 +837,7 @@
                 <div class="picker-menu" role="listbox" hidden></div>
             </div>
         </div>
-    </div>
+    </nav>
     <section id="home" aria-label="Trang chủ">
         <div class="book-grid">
             <a class="book-card" data-book="0" href="./1.html">
@@ -867,21 +860,32 @@
             </a>
         </div>
     </section>
-    <div id="reader-container">
+    <main id="reader-container">
         <article id="reader">
             <h1 id="chapter-title"></h1>
             <hr />
             <div id="chapter-content"></div>
         </article>
 
-        <div class="bottom-nav">
+        <nav class="bottom-nav">
             <button type="button" id="btn-prev-bottom" class="btn">Chương Trước</button>
             <button type="button" id="btn-next-bottom" class="btn">Chương Sau</button>
-        </div>
-    </div>
+        </nav>
+    </main>
     <div id="picker-root">
         <div id="picker-backdrop" hidden aria-label="Đóng danh sách"></div>
     </div>
+    <script>
+        (function () {
+            try {
+                var match = /\/(\d+)\.html$/.exec(location.pathname);
+                if (!match) return;
+                var map = JSON.parse(localStorage.getItem("scroll-pos-map") || "{}");
+                var y = Number(map[match[1]]);
+                if (y > 0) window.scrollTo(0, y);
+            } catch (e) { }
+        })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
 </body>
 

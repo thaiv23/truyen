@@ -34,8 +34,10 @@ function injectChapterHtml(html: string, ch: number, titles: string[]): string {
   const safeTitle = escapeHtml(title);
   return html
     .replace("<title>Truyện Phàm Nhân Tu Tiên</title>", `<title>${safeTitle}</title>`)
+    .replace(/\s*<section id="home"[\s\S]*?<\/section>/, "")
     .replace('<article id="reader">', `<article id="reader" data-prerendered-ch="${ch}">`)
     .replace('<h1 id="chapter-title"></h1>', `<h1 id="chapter-title">${safeTitle}</h1>`)
+    .replace('<span class="picker-value"></span>', `<span class="picker-value">${safeTitle}</span>`)
     .replace('<div id="chapter-content"></div>', `<div id="chapter-content">${body}</div>`);
 }
 

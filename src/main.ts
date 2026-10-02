@@ -248,6 +248,7 @@ const closePicker = (picker: Picker): void => {
   if (!pickers.some(isPickerOpen)) {
     pickerBackdrop.hidden = true;
     lockPageScroll(false);
+    unbindPickerViewport();
   }
 };
 
@@ -275,7 +276,8 @@ const layoutOpenPicker = (picker: Picker): void => {
 const setPickerValue = (picker: Picker, value: string): void => {
   picker.value = value;
   const match = picker.options.find((opt) => opt.value === value);
-  picker.valueEl.textContent = match?.label ?? value;
+  const label = match?.label ?? value;
+  if (picker.valueEl.textContent !== label) picker.valueEl.textContent = label;
   picker.menu.querySelectorAll<HTMLButtonElement>(".picker-option").forEach((btn) => {
     const selected = btn.dataset.value === value;
     btn.classList.toggle("is-selected", selected);
@@ -310,6 +312,7 @@ const openPicker = (picker: Picker): void => {
   picker.menu.hidden = false;
   layoutOpenPicker(picker);
   picker.menu.style.visibility = "";
+  bindPickerViewport();
 };
 
 const bindPickerEvents = (picker: Picker): void => {
@@ -355,15 +358,31 @@ pickerBackdrop.addEventListener("click", () => {
   closeAllPickers();
 });
 
-const relayoutOpenPicker = (): void => {
+let pickerViewportBound = false;
+
+const onPickerViewport = (): void => {
+  if (document.visibilityState === "hidden") return;
   const open = pickers.find(isPickerOpen);
   if (open) layoutOpenPicker(open);
 };
 
-window.addEventListener("resize", relayoutOpenPicker);
-window.visualViewport?.addEventListener("resize", relayoutOpenPicker);
-window.visualViewport?.addEventListener("scroll", relayoutOpenPicker);
-window.addEventListener("scroll", relayoutOpenPicker, { passive: true });
+const bindPickerViewport = (): void => {
+  if (pickerViewportBound) return;
+  pickerViewportBound = true;
+  window.addEventListener("resize", onPickerViewport);
+  window.addEventListener("scroll", onPickerViewport, { passive: true });
+  window.visualViewport?.addEventListener("resize", onPickerViewport);
+  window.visualViewport?.addEventListener("scroll", onPickerViewport);
+};
+
+const unbindPickerViewport = (): void => {
+  if (!pickerViewportBound) return;
+  pickerViewportBound = false;
+  window.removeEventListener("resize", onPickerViewport);
+  window.removeEventListener("scroll", onPickerViewport);
+  window.visualViewport?.removeEventListener("resize", onPickerViewport);
+  window.visualViewport?.removeEventListener("scroll", onPickerViewport);
+};
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -376,7 +395,6 @@ let toc: Chapter[] = [];
 let currentCh = 1;
 let currentPart: string | null = null;
 let partIndex = new Map<string, number[]>();
-let scrollSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 const migrateOldScrollKeys = (): void => {
   if (localStorage.getItem(STORAGE_KEYS.scrollMap) != null) return;
@@ -530,11 +548,9 @@ const renderChapterPicker = (part: string, ch: number): void => {
 
 const restoreScrollPosition = (ch: number): void => {
   if (document.visibilityState === "hidden") return;
-  const saved = readScrollMap()[String(ch)];
-  const y = saved ? Number(saved) : 0;
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => window.scrollTo(0, y));
-  });
+  const y = Number(readScrollMap()[String(ch)] ?? 0);
+  if (!Number.isFinite(y) || Math.abs(window.scrollY - y) < 2) return;
+  window.scrollTo(0, y);
 };
 
 const assetUrl = (path: string): string => {
@@ -544,12 +560,7 @@ const assetUrl = (path: string): string => {
 
 const prefetchChapter = (ch: number): void => {
   if (ch < 1 || ch > toc.length || document.visibilityState === "hidden") return;
-  const run = (): void => {
-    if (document.visibilityState === "hidden") return;
-    void fetch(assetUrl(`chapters/${ch}.txt`), { cache: "force-cache" }).catch(() => undefined);
-  };
-  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, { timeout: 2500 });
-  else window.setTimeout(run, 1200);
+  void fetch(assetUrl(`chapters/${ch}.txt`), { cache: "force-cache" }).catch(() => undefined);
 };
 
 const fetchChapterText = async (ch: number): Promise<string> => {
@@ -566,8 +577,8 @@ const loadChapter = async (ch: number): Promise<void> => {
   const entry = toc[ch - 1];
   if (!entry) return;
 
-  el.title.textContent = entry.title;
-  document.title = entry.title;
+  if (el.title.textContent !== entry.title) el.title.textContent = entry.title;
+  if (document.title !== entry.title) document.title = entry.title;
 
   el.btnPrev.disabled = el.btnPrevBottom.disabled = ch <= 1;
   el.btnNext.disabled = el.btnNextBottom.disabled = ch >= toc.length;
@@ -580,10 +591,8 @@ const loadChapter = async (ch: number): Promise<void> => {
   try {
     if (!prerendered) {
       el.content.innerHTML = await fetchChapterText(ch);
+      restoreScrollPosition(ch);
     }
-    restoreScrollPosition(ch);
-    prefetchChapter(ch + 1);
-    prefetchChapter(ch + 2);
   } catch (err) {
     el.content.innerHTML = '<p class="error">Không tải được nội dung chương.</p>';
     console.error(err);
@@ -640,23 +649,11 @@ el.btnPrev.addEventListener("click", goPrev);
 el.btnNext.addEventListener("click", goNext);
 el.btnPrevBottom.addEventListener("click", goPrev);
 el.btnNextBottom.addEventListener("click", goNext);
-
-window.addEventListener(
-  "scroll",
-  () => {
-    if (document.visibilityState === "hidden") return;
-    if (scrollSaveTimer) clearTimeout(scrollSaveTimer);
-    scrollSaveTimer = setTimeout(saveScrollNow, 150);
-  },
-  { passive: true },
-);
+el.btnNext.addEventListener("pointerdown", () => prefetchChapter(currentCh + 1), { passive: true });
+el.btnNextBottom.addEventListener("pointerdown", () => prefetchChapter(currentCh + 1), { passive: true });
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "hidden") return;
-  if (scrollSaveTimer) {
-    clearTimeout(scrollSaveTimer);
-    scrollSaveTimer = null;
-  }
   saveScrollNow();
   if (pickers.some(isPickerOpen)) closeAllPickers();
 });
