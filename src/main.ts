@@ -302,6 +302,9 @@ const renderPickerOptions = (picker: Picker, options: PickerOption[], selected: 
 };
 
 const openPicker = (picker: Picker): void => {
+  if (picker !== el.chapterPicker && picker.menu.childElementCount === 0 && picker.options.length) {
+    renderPickerOptions(picker, picker.options, picker.value);
+  }
   pickers.forEach((other) => {
     if (other !== picker) closePicker(other);
   });
@@ -570,12 +573,26 @@ const fetchChapterText = async (ch: number): Promise<string> => {
 };
 
 const loadChapter = async (ch: number): Promise<void> => {
-  if (ch < 1 || ch > toc.length) return;
+  if (ch < 1 || ch > toc.length || document.visibilityState === "hidden") return;
   currentCh = ch;
   rememberChapter(ch);
 
   const entry = toc[ch - 1];
   if (!entry) return;
+
+  const prerendered = el.reader.getAttribute("data-prerendered-ch") === String(ch);
+  if (prerendered) {
+    if (entry.part !== currentPart) {
+      currentPart = entry.part;
+      el.chapterPicker.options = (partIndex.get(entry.part) ?? []).map((idx) => ({
+        value: String(idx),
+        label: toc[idx - 1]?.title ?? "",
+      }));
+      chapterWindowKey = "";
+    }
+    el.chapterPicker.value = String(ch);
+    return;
+  }
 
   if (el.title.textContent !== entry.title) el.title.textContent = entry.title;
   if (document.title !== entry.title) document.title = entry.title;
@@ -583,16 +600,11 @@ const loadChapter = async (ch: number): Promise<void> => {
   el.btnPrev.disabled = el.btnPrevBottom.disabled = ch <= 1;
   el.btnNext.disabled = el.btnNextBottom.disabled = ch >= toc.length;
   renderChapterPicker(entry.part, ch);
-  const prerendered = el.reader.getAttribute("data-prerendered-ch") === String(ch);
-  if (!prerendered) {
-    el.content.innerHTML = '<p class="loading">Đang tải chương…</p>';
-  }
+  el.content.innerHTML = '<p class="loading">Đang tải chương…</p>';
 
   try {
-    if (!prerendered) {
-      el.content.innerHTML = await fetchChapterText(ch);
-      restoreScrollPosition(ch);
-    }
+    el.content.innerHTML = await fetchChapterText(ch);
+    restoreScrollPosition(ch);
   } catch (err) {
     el.content.innerHTML = '<p class="error">Không tải được nội dung chương.</p>';
     console.error(err);
@@ -652,13 +664,18 @@ el.btnNextBottom.addEventListener("click", goNext);
 el.btnNext.addEventListener("pointerdown", () => prefetchChapter(currentCh + 1), { passive: true });
 el.btnNextBottom.addEventListener("pointerdown", () => prefetchChapter(currentCh + 1), { passive: true });
 
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState !== "hidden") return;
+let userMoved = false;
+window.addEventListener("pointerdown", () => {
+  userMoved = true;
+}, { passive: true });
+window.addEventListener("pointerup", () => {
+  if (!userMoved || document.visibilityState === "hidden") return;
+  userMoved = false;
   saveScrollNow();
-  if (pickers.some(isPickerOpen)) closeAllPickers();
-});
-
-window.addEventListener("pagehide", saveScrollNow);
+}, { passive: true });
+window.addEventListener("pointercancel", () => {
+  userMoved = false;
+}, { passive: true });
 
 document.addEventListener("keydown", (e) => {
   if (isHomeMode()) return;
@@ -675,12 +692,13 @@ const FONT_OPTIONS: PickerOption[] = [
   { value: "19px", label: "Bình thường" },
   { value: "22px", label: "Lớn" },
 ];
-renderPickerOptions(el.fs, FONT_OPTIONS, "19px");
-
-const savedSize = localStorage.getItem(STORAGE_KEYS.fontSize);
-changeFontSize(normalizeFontSize(savedSize));
-if (document.documentElement.classList.contains("dark-mode")) {
-  el.themeCheckbox.checked = true;
+const savedSize = normalizeFontSize(localStorage.getItem(STORAGE_KEYS.fontSize));
+el.fs.options = FONT_OPTIONS;
+el.fs.value = savedSize;
+const savedFontLabel = FONT_OPTIONS.find((opt) => opt.value === savedSize)?.label ?? "Bình thường";
+if (el.fs.valueEl.textContent !== savedFontLabel) el.fs.valueEl.textContent = savedFontLabel;
+if (getComputedStyle(document.documentElement).getPropertyValue("--font-size").trim() !== savedSize) {
+  changeFontSize(savedSize);
 }
 
 const bindHomeCards = (): void => {
@@ -730,10 +748,18 @@ const init = async (): Promise<void> => {
     return;
   }
 
-  document.documentElement.classList.remove("home-mode");
+  if (document.documentElement.classList.contains("home-mode")) {
+    document.documentElement.classList.remove("home-mode");
+  }
 
   try {
     toc = await loadToc();
+    if (document.visibilityState === "hidden") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") void init();
+      }, { once: true });
+      return;
+    }
     buildPartIndex();
     migrateOldScrollKeys();
     seedLastByPart();

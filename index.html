@@ -75,7 +75,13 @@
             transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
         }
 
+        html:not(.home-mode) body,
         html:not(.home-mode) #toolbar {
+            transition: none;
+        }
+
+        html:not(.home-mode) #toolbar {
+            position: relative;
             background: var(--toolbar-bg);
             border-bottom-color: var(--border);
             box-shadow: none;
@@ -878,6 +884,14 @@
     <script>
         (function () {
             try {
+                var labels = { "17px": "Nhỏ", "19px": "Bình thường", "22px": "Lớn" };
+                var fs = getComputedStyle(document.documentElement).getPropertyValue("--font-size").trim();
+                var fontLabel = document.querySelector("#fs .picker-value");
+                if (fontLabel) fontLabel.textContent = labels[fs] || "Bình thường";
+                if (document.documentElement.classList.contains("dark-mode")) {
+                    var theme = document.getElementById("theme-checkbox");
+                    if (theme) theme.checked = true;
+                }
                 var match = /\/(\d+)\.html$/.exec(location.pathname);
                 if (!match) return;
                 var map = JSON.parse(localStorage.getItem("scroll-pos-map") || "{}");
